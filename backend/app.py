@@ -1,64 +1,71 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from embeddings import generate_embeddings
-from pdf_loader import chunk_text, extract_text_from_pdf, get_sample_pdf_path
-from vector_store import create_index, save_index
-
-
-app = Flask(__name__)
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-INDEX_PATH = BASE_DIR / "data" / "notes_index.faiss"
+from backend.ingest import save_uploaded_file
+from backend.llm import generate_answer
 
 
-@app.route("/", methods=["GET"])
-def home() -> Any:
-	"""Show a simple message on the base URL."""
-	return jsonify(
-		{
-			"status": "running",
-			"message": "NoteMind backend is running. Open /process_notes to process the sample PDF.",
-		}
-	)
+# Create the FastAPI application instance.
+app = FastAPI(title="NoteMind API", version="0.1.0")
 
 
-@app.route("/process_notes", methods=["GET", "POST"])
-def process_notes() -> Any:
-	"""
-	Process the sample PDF from the data folder.
-
-	This endpoint performs the complete first stage of the project:
-	1. Load the PDF
-	2. Extract the text
-	3. Split the text into chunks
-	4. Generate embeddings
-	5. Store embeddings in a FAISS index file
-	"""
-	try:
-		pdf_path = get_sample_pdf_path()
-		full_text = extract_text_from_pdf(pdf_path)
-		chunks = chunk_text(full_text)
-
-		if not chunks:
-			return jsonify({"status": "error", "message": "No chunks were created from the PDF."}), 400
-
-		embeddings = generate_embeddings(chunks)
-		index = create_index(embeddings)
-		save_index(index, INDEX_PATH)
-
-		return jsonify({"status": "success", "chunks_created": len(chunks)})
-	except FileNotFoundError as error:
-		return jsonify({"status": "error", "message": str(error)}), 404
-	except ValueError as error:
-		return jsonify({"status": "error", "message": str(error)}), 400
-	except Exception as error:
-		return jsonify({"status": "error", "message": f"Unexpected error: {error}"}), 500
+# Allow the frontend (running on localhost:3000) to call this API.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-if __name__ == "__main__":
-	app.run(host="0.0.0.0", port=5000, debug=True)
+class QueryRequest(BaseModel):
+    """Request body for the /api/query endpoint."""
+
+    question: str
+
+
+@app.get("/")
+def home() -> dict[str, str]:
+    """Health-style endpoint to confirm the API is running."""
+    return {
+        "status": "running",
+        "message": "NoteMind FastAPI backend is running.",
+    }
+
+
+@app.post("/api/upload")
+async def upload_notes(file: UploadFile = File(...)) -> dict[str, Any]:
+    """
+    Upload a PDF or TXT file and save it into data/uploads.
+
+    Business logic is delegated to ingest.py to keep this file lightweight.
+    """
+    allowed_extensions = {".pdf", ".txt"}
+
+    try:
+        saved_path = await save_uploaded_file(file=file, allowed_extensions=allowed_extensions)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return {
+        "success": True,
+        "message": "File uploaded successfully",
+        "filename": saved_path.name,
+    }
+
+
+@app.post("/api/query")
+def query_notes(payload: QueryRequest) -> dict[str, str]:
+    """
+    Accept a user question and return a placeholder answer.
+
+    Retrieval + LLM orchestration will be expanded in Day 2.
+    """
+    answer = generate_answer(question=payload.question)
+    return {"answer": answer}

@@ -1,49 +1,57 @@
-# NoteMind - Stage 1 Backend
+# NoteMind - FastAPI Backend 
 
-This version of NoteMind implements only the first stage of the project.
-
-It reads a PDF file from the `data` folder, extracts the text, splits the text into chunks, converts the chunks into embeddings, and stores those embeddings in a FAISS index.
+This version of NoteMind starts the FastAPI migration while keeping the existing
+core modules reusable (`pdf_loader.py`, `embeddings.py`, `vector_store.py`).
 
 ## Files
 
 ```text
 backend/
 |-- app.py
+|-- ingest.py
+|-- retrieval.py
+|-- llm.py
 |-- embeddings.py
 |-- pdf_loader.py
 |-- vector_store.py
 `-- requirements.txt
 
 data/
-`-- sample_notes.pdf
+|-- uploads/
+`-- notes_index.faiss
 ```
 
 ## What Each File Does
 
-- `pdf_loader.py` reads the PDF and splits the extracted text into chunks.
-- `embeddings.py` converts chunks into embeddings using Sentence Transformers.
-- `vector_store.py` creates, saves, and loads a FAISS index.
-- `app.py` exposes a Flask endpoint called `/process_notes`.
+- `app.py` contains only API wiring (routes, CORS, request/response handling).
+- `ingest.py` handles file ingestion helpers (saving uploads, future indexing flow).
+- `retrieval.py` is the home for FAISS retrieval helpers (stub for now).
+- `llm.py` provides a placeholder LLM answer function.
+- `pdf_loader.py`, `embeddings.py`, and `vector_store.py` remain unchanged and reusable.
 
-## Flask Endpoint
+## API Endpoints
 
-### `GET` or `POST /process_notes`
+### `POST /api/upload`
 
-This endpoint performs the whole first-stage pipeline:
+- Accepts one uploaded file (`.pdf` or `.txt`).
+- Saves the file to `data/uploads/`.
+- Returns a success message and filename.
 
-1. Load `data/sample_notes.pdf`
-2. Extract all text from the PDF
-3. Split the text into overlapping chunks
-4. Generate embeddings for each chunk
-5. Create a FAISS index
-6. Save the index locally
+### `POST /api/query`
 
-Example JSON response:
+Accepts JSON payload:
 
 ```json
 {
-  "status": "success",
-  "chunks_created": 8
+  "question": "What are my key notes?"
+}
+```
+
+Returns:
+
+```json
+{
+  "answer": "This is a placeholder answer"
 }
 ```
 
@@ -51,5 +59,5 @@ Example JSON response:
 
 ```bash
 pip install -r backend/requirements.txt
-python backend/app.py
+uvicorn backend.app:app --reload
 ```
