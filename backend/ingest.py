@@ -4,9 +4,9 @@ from pathlib import Path
 
 from fastapi import UploadFile
 
-from backend.embeddings import generate_embeddings
-from backend.pdf_loader import chunk_text, extract_text_from_pdf
-from backend.vector_store import create_index, save_index
+from embeddings import generate_embeddings
+from pdf_loader import chunk_text, extract_text_from_pdf
+from vector_store import create_index, save_index
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
