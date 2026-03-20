@@ -6,9 +6,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from ingest import save_uploaded_file
-from retrieval import get_answer
-from llm import generate_answer
+from backend.ingest import save_uploaded_file
+from backend.llm import generate_answer
 
 
 # Create the FastAPI application instance.

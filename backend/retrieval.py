@@ -17,3 +17,12 @@ def load_notes_index():
     search/retrieval logic on Day 2.
     """
     return load_index(INDEX_PATH)
+
+# retrieval.py
+
+def get_answer(question: str) -> str:
+    """
+    Placeholder retrieval function.
+    Will later search the FAISS index and return relevant chunks.
+    """
+    return "This is a placeholder answer."
