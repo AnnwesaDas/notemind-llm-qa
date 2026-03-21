@@ -151,8 +151,8 @@ Ask a question about your uploaded notes.
 
 ### Backend Setup
 ```bash
-# 1. Navigate into the backend folder
-cd backend
+# 1. Stay at project root
+cd notemind-llm-qa
 
 # 2. Create and activate virtual environment (if not already done)
 python -m venv .venv
@@ -160,10 +160,10 @@ python -m venv .venv
 source .venv/bin/activate    # Mac/Linux
 
 # 3. Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
 # 4. Start the server
-uvicorn app:app --reload
+python -m uvicorn backend.app:app --reload
 ```
 
 Backend runs on: **http://127.0.0.1:8000**
@@ -194,9 +194,9 @@ Open two terminals:
 
 **Terminal 1 — Backend:**
 ```bash
-cd backend
+cd notemind-llm-qa
 .venv\Scripts\activate
-uvicorn app:app --reload
+python -m uvicorn backend.app:app --reload
 ```
 
 **Terminal 2 — Frontend:**
@@ -206,6 +206,20 @@ npm run dev
 ```
 
 Then open **http://localhost:8080** in your browser.
+
+### One-Command Start (Windows PowerShell)
+
+From project root:
+
+```powershell
+.\run.ps1
+```
+
+First-time setup (installs backend + frontend dependencies, then starts both):
+
+```powershell
+.\run.ps1 -InstallDeps
+```
 
 ---
 
