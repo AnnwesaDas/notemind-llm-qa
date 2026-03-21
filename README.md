@@ -1,164 +1,226 @@
-# NoteMind - LLM-Powered Study Assistant
+# NoteMind — AI-Powered Study Assistant
 
-A full-stack application combining FastAPI backend with React frontend for intelligent document analysis and Q&A.
+A full-stack RAG (Retrieval-Augmented Generation) application that lets you
+upload study documents and ask questions about them using AI.
+
+---
 
 ## Project Structure
-
-```text
+```
 notemind-llm-qa/
 ├── backend/
-│   ├── app.py                    # FastAPI application & routes
-│   ├── ingest.py                 # File upload & processing
-│   ├── retrieval.py              # FAISS retrieval helpers (stub)
-│   ├── llm.py                    # LLM answer generation
-│   ├── embeddings.py             # Sentence transformer embeddings
-│   ├── pdf_loader.py             # PDF processing
-│   ├── vector_store.py           # FAISS vector storage
-│   └── requirements.txt           # Python dependencies
+│   ├── app.py              # FastAPI app — routes and server setup
+│   ├── ingest.py           # File upload and ingestion logic
+│   ├── retrieval.py        # FAISS retrieval logic (stub for now)
+│   ├── llm.py              # LLM answer generation (stub for now)
+│   ├── embeddings.py       # Sentence transformer embeddings
+│   ├── pdf_loader.py       # PDF text extraction and chunking
+│   ├── vector_store.py     # FAISS index create/save/load
+│   ├── requirements.txt    # Python dependencies
+│   └── data/
+│       └── uploads/        # Uploaded files are saved here
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx              # React entry point
-│   │   ├── App.tsx               # Main app router
-│   │   ├── index.css             # Global styles
-│   │   ├── vite-env.d.ts         # Vite environment types
-│   │   │
+│   │   ├── main.tsx            # React entry point
+│   │   ├── App.tsx             # Main app router
+│   │   ├── index.css           # Global styles
 │   │   ├── pages/
-│   │   │   ├── Index.tsx         # Landing page
-│   │   │   ├── Dashboard.tsx     # Document management
-│   │   │   ├── Chat.tsx          # Chat interface
-│   │   │   ├── Compare.tsx       # Compare documents
-│   │   │   ├── Flashcards.tsx    # Flashcard generation
-│   │   │   └── NotFound.tsx      # 404 page
-│   │   │
+│   │   │   ├── Index.tsx       # Landing page
+│   │   │   ├── Dashboard.tsx   # Document management
+│   │   │   ├── Chat.tsx        # Chat interface
+│   │   │   ├── Compare.tsx     # Compare two documents
+│   │   │   ├── Flashcards.tsx  # Flashcard study mode
+│   │   │   └── NotFound.tsx    # 404 page
 │   │   ├── components/
-│   │   │   ├── AppSidebar.tsx    # Navigation sidebar
-│   │   │   ├── ChatWindow.tsx    # Chat UI with API integration
-│   │   │   ├── DocUploader.tsx   # File upload with drag-drop
-│   │   │   ├── DocSelector.tsx   # Document picker
-│   │   │   ├── CitationChip.tsx  # Citation display
-│   │   │   ├── NavLink.tsx       # Navigation links
-│   │   │   └── ui/               # Shadcn UI components
-│   │   │
+│   │   │   ├── AppSidebar.tsx  # Navigation sidebar
+│   │   │   ├── ChatWindow.tsx  # Chat UI with API integration
+│   │   │   ├── DocUploader.tsx # Drag-and-drop file upload
+│   │   │   ├── DocSelector.tsx # Document picker
+│   │   │   ├── CitationChip.tsx# Citation display chips
+│   │   │   └── ui/             # Shadcn UI components
 │   │   ├── hooks/
-│   │   │   ├── use-toast.ts      # Toast notifications
-│   │   │   └── use-mobile.tsx    # Mobile detection
-│   │   │
-│   │   ├── lib/
-│   │   │   ├── utils.ts          # Utility functions
-│   │   │   └── dummyData.ts      # Sample data
-│   │   │
-│   │   └── test/
-│   │       ├── example.test.ts   # Unit tests
-│   │       └── setup.ts          # Test setup
-│   │
-│   ├── public/                    # Static assets
-│   ├── package.json               # Node dependencies & scripts
-│   ├── vite.config.ts             # Vite build config
-│   ├── tailwind.config.ts         # Tailwind CSS config
-│   ├── tsconfig.json              # TypeScript config
-│   └── vitest.config.ts           # Vitest config
+│   │   │   ├── use-toast.ts    # Toast notifications
+│   │   │   └── use-mobile.tsx  # Mobile detection
+│   │   └── lib/
+│   │       ├── utils.ts        # Utility functions
+│   │       └── dummyData.ts    # Sample data for UI testing
+│   ├── package.json            # Node dependencies and scripts
+│   ├── vite.config.ts          # Vite build config
+│   ├── tailwind.config.ts      # Tailwind CSS config
+│   └── tsconfig.json           # TypeScript config
 │
 ├── data/
-│   ├── uploads/                   # User uploaded files
-│   └── notes_index.faiss          # FAISS vector index
+│   └── sample_notes.pdf        # Sample PDF for testing
 │
 └── README.md
 ```
 
-## Backend Components
+---
 
-- **app.py**: FastAPI application, CORS middleware, API route definitions
-- **ingest.py**: Handles file uploads and saves to `data/uploads/`
-- **retrieval.py**: FAISS-based document retrieval (in development)
-- **llm.py**: LLM integration for answer generation
-- **embeddings.py**: Sentence transformer for document embeddings
-- **pdf_loader.py**: PDF text extraction
-- **vector_store.py**: FAISS vector database operations
+## Tech Stack
 
-## Frontend Components
+| Layer     | Technology                          |
+|-----------|-------------------------------------|
+| Backend   | FastAPI, Python 3.13                |
+| Frontend  | React 18, TypeScript, Vite          |
+| Styling   | Tailwind CSS, Shadcn UI             |
+| Embeddings| sentence-transformers (MiniLM-L6-v2)|
+| Vector DB | FAISS                               |
+| PDF Parse | pypdf                               |
 
-- **ChatWindow**: Real-time chat with backend `/api/query` integration
-- **DocUploader**: Drag-and-drop file upload to `/api/upload`
-- **Dashboard**: Document management interface
-- **Chat**: Query interface with conversation history
-- **Compare**: Side-by-side document comparison
-- **Flashcards**: Auto-generated study flashcards
+---
 
 ## API Endpoints
 
-### `POST /api/upload`
+### `GET /`
+Health check — confirms the server is running.
 
-- Accepts one uploaded file (`.pdf` or `.txt`).
-- Saves the file to `data/uploads/`.
-- Returns a success message and filename.
+**Response:**
+```json
+{
+  "status": "running",
+  "message": "NoteMind FastAPI backend is running."
+}
+```
+
+---
+
+### `POST /api/upload`
+Upload a PDF or TXT file. Saves it to `data/uploads/`.
+
+**Request:** `multipart/form-data` with a `file` field.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "File uploaded successfully",
+  "filename": "my_notes.pdf"
+}
+```
+
+**Errors:**
+- `400` — unsupported file type (only `.pdf` and `.txt` allowed)
+
+---
 
 ### `POST /api/query`
+Ask a question about your uploaded notes.
 
-Accepts JSON payload:
-
+**Request:**
 ```json
 {
-  "question": "What are my key notes?"
+  "question": "What are the key concepts in my notes?"
 }
 ```
 
-Returns:
-
+**Response:**
 ```json
 {
-  "answer": "This is a placeholder answer"
+  "answer": "This is a placeholder answer."
 }
 ```
 
-## Run Instructions
+> Note: Real retrieval and LLM integration coming in Day 2.
+
+---
+
+## RAG Pipeline Status
+
+| Step                        | File              | Status         |
+|-----------------------------|-------------------|----------------|
+| Extract text from PDF       | `pdf_loader.py`   | ✅ Complete    |
+| Chunk text with overlap     | `pdf_loader.py`   | ✅ Complete    |
+| Generate embeddings         | `embeddings.py`   | ✅ Complete    |
+| Store embeddings in FAISS   | `vector_store.py` | ✅ Complete    |
+| Upload file via API         | `ingest.py`       | ✅ Complete    |
+| Search FAISS by query       | `retrieval.py`    | 🔲 Day 2      |
+| Generate answer with LLM    | `llm.py`          | 🔲 Day 2      |
+| Connect retrieval to API    | `app.py`          | 🔲 Day 2      |
+
+---
+
+## Setup and Running
 
 ### Prerequisites
-- Python 3.9+ 
-- Node.js 18+ (with npm or bun)
+- Python 3.9 or higher
+- Node.js 18 or higher
+
+---
 
 ### Backend Setup
 ```bash
+# 1. Navigate into the backend folder
 cd backend
+
+# 2. Create and activate virtual environment (if not already done)
+python -m venv .venv
+.venv\Scripts\activate       # Windows
+source .venv/bin/activate    # Mac/Linux
+
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Start the server
 uvicorn app:app --reload
 ```
-Backend runs on: **http://localhost:8000**
+
+Backend runs on: **http://127.0.0.1:8000**
+
+API docs available at: **http://127.0.0.1:8000/docs**
+
+---
 
 ### Frontend Setup
 ```bash
+# 1. Navigate into the frontend folder
 cd frontend
-npm install
-# or if using bun:
-bun install
 
-# Start development server
+# 2. Install dependencies
+npm install
+
+# 3. Start the development server
 npm run dev
-# or with bun:
-bun run dev
 ```
+
 Frontend runs on: **http://localhost:8080**
 
+---
+
 ### Running Both Together
-1. **Terminal 1** - Backend:
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   uvicorn app:app --reload
-   ```
 
-2. **Terminal 2** - Frontend:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+Open two terminals:
 
-3. Open browser to: **http://localhost:8080**
+**Terminal 1 — Backend:**
+```bash
+cd backend
+.venv\Scripts\activate
+uvicorn app:app --reload
+```
 
-## Features Now Working
-✅ File upload (PDF/TXT) - drag & drop or browse  
-✅ Chat interface - send queries to backend  
-✅ CORS enabled - frontend ↔ backend communication  
-✅ Real-time typing indicator  
-✅ Error handling & toast notifications
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Then open **http://localhost:8080** in your browser.
+
+---
+
+## Current Status
+
+### ✅ Working (Day 1)
+- FastAPI server running with CORS enabled
+- File upload endpoint accepting PDF and TXT files
+- Files saved to `data/uploads/`
+- Dummy query endpoint returning placeholder answer
+- Full frontend UI with chat, dashboard, flashcards, and compare pages
+- PDF loading, chunking, embedding, and FAISS indexing modules ready
+
+### 🔲 Coming Next (Day 2)
+- Wire up FAISS search to the query endpoint
+- Embed user questions and find matching chunks
+- Integrate an LLM to generate real answers from retrieved context
+- Return cited answers linked to source documents
