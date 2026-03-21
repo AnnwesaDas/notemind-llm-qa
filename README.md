@@ -57,7 +57,52 @@ Returns:
 
 ## Run Instructions
 
+### Prerequisites
+- Python 3.9+ 
+- Node.js 18+ (with npm or bun)
+
+### Backend Setup
 ```bash
-pip install -r backend/requirements.txt
-uvicorn backend.app:app --reload
+cd backend
+pip install -r requirements.txt
+uvicorn app:app --reload
 ```
+Backend runs on: **http://localhost:8000**
+
+### Frontend Setup
+```bash
+cd frontend
+npm install
+# or if using bun:
+bun install
+
+# Start development server
+npm run dev
+# or with bun:
+bun run dev
+```
+Frontend runs on: **http://localhost:8080**
+
+### Running Both Together
+1. **Terminal 1** - Backend:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   uvicorn app:app --reload
+   ```
+
+2. **Terminal 2** - Frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+3. Open browser to: **http://localhost:8080**
+
+## Features Now Working
+✅ File upload (PDF/TXT) - drag & drop or browse  
+✅ Chat interface - send queries to backend  
+✅ CORS enabled - frontend ↔ backend communication  
+✅ Real-time typing indicator  
+✅ Error handling & toast notifications
