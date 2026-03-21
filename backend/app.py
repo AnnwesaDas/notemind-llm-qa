@@ -14,10 +14,10 @@ from backend.llm import generate_answer
 app = FastAPI(title="NoteMind API", version="0.1.0")
 
 
-# Allow the frontend (running on localhost:3000) to call this API.
+# Allow the frontend (running on localhost:8080) to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:8080"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
