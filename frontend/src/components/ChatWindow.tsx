@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, Sparkles } from "lucide-react";
 import CitationChip from "./CitationChip";
 import { type ChatMessage } from "@/lib/dummyData";
 
-const ChatWindow = () => {
+interface ChatWindowProps {
+  resetSignal?: number;
+}
+
+const ChatWindow = ({ resetSignal = 0 }: ChatWindowProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,6 +17,12 @@ const ChatWindow = () => {
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
+
+  useEffect(() => {
+    setMessages([]);
+    setInput("");
+    setLoading(false);
+  }, [resetSignal]);
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -59,8 +69,28 @@ const ChatWindow = () => {
 
   return (
     <div className="flex flex-col h-full">
+      <header className="flex items-center gap-2 px-6 py-4 border-b border-primary/5">
+        <Sparkles className="h-4 w-4 text-accent" />
+        <span className="text-sm font-semibold tracking-tighter text-foreground">Synthesis Session</span>
+      </header>
+
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-8">
+        <div className="max-w-3xl mx-auto space-y-6">
+        {messages.length === 0 && !loading && (
+          <div className="text-center py-24 animate-fade-up">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
+            <span className="block text-2xl font-semibold tracking-[-0.01em] leading-snug text-foreground mb-2">
+              Synthesize the cosmos of your curriculum
+            </span>
+            <p className="text-sm tracking-normal leading-relaxed text-muted-foreground max-w-md mx-auto text-wrap-pretty">
+              Upload your course materials and ask questions. NoteMind will analyze, cross-reference, and synthesize insights from your documents.
+            </p>
+          </div>
+        )}
+
         {messages.map((msg, idx) => (
           <div
             key={msg.id}
@@ -77,7 +107,7 @@ const ChatWindow = () => {
               <div
                 className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "gradient-violet text-primary-foreground rounded-br-md"
+                    ? "bg-accent text-accent-foreground rounded-br-md"
                     : "glass rounded-bl-md text-foreground"
                 }`}
               >
@@ -114,6 +144,7 @@ const ChatWindow = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Input */}
@@ -132,7 +163,7 @@ const ChatWindow = () => {
             size="icon"
             onClick={handleSendMessage}
             disabled={loading || !input.trim()}
-            className="rounded-xl shrink-0 gradient-violet border-0 disabled:opacity-50"
+            className="rounded-xl shrink-0 bg-accent text-accent-foreground hover:bg-accent/80 border-0 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
           </Button>

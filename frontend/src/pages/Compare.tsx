@@ -39,8 +39,8 @@ const Compare = () => {
           </Button>
         </Link>
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md gradient-violet flex items-center justify-center">
-            <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+          <div className="h-7 w-7 rounded-md bg-accent flex items-center justify-center">
+            <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
           </div>
           <h1 className="font-serif text-xl text-foreground">Compare Mode</h1>
         </div>

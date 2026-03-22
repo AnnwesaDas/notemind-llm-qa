@@ -20,14 +20,14 @@ const Index = () => {
 
       {/* Nav */}
       <nav className="relative z-10 border-b border-border/50 px-6 py-4 flex items-center justify-between backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg gradient-violet flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-foreground">NoteMind</span>
+        <div className="flex items-center">
+          <span className="text-lg font-semibold tracking-tight text-foreground">
+            <span className="text-primary">Note</span>
+            <span className="text-foreground">Mind</span>
+          </span>
         </div>
         <Link to="/dashboard">
-          <Button size="sm" className="gradient-violet border-0 hover:opacity-90">Go to Dashboard</Button>
+          <Button size="sm" variant="outline" className="glass border-border/60 text-foreground hover:bg-surface-hover">Go to Dashboard</Button>
         </Link>
       </nav>
 
@@ -53,7 +53,7 @@ const Index = () => {
 
           <div className="animate-fade-up flex gap-3 justify-center pt-2" style={{ animationDelay: "0.3s" }}>
             <Link to="/dashboard">
-              <Button size="lg" className="gradient-violet border-0 rounded-xl px-8 text-base glow-violet hover:opacity-90 transition-opacity">
+              <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/80 border-0 rounded-xl px-8 text-base glow-violet transition-colors">
                 Get Started
               </Button>
             </Link>

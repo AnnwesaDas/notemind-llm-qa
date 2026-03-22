@@ -17,14 +17,13 @@ notemind-llm-qa/
 │   ├── pdf_loader.py       # PDF text extraction and chunking
 │   ├── vector_store.py     # FAISS index create/save/load
 │   ├── requirements.txt    # Python dependencies
-│   └── data/
-│       └── uploads/        # Uploaded files are saved here
+│   └── __pycache__/        # Python cache
 │
-├── frontend/
+├── frontend/               # Main React + TypeScript application
 │   ├── src/
 │   │   ├── main.tsx            # React entry point
 │   │   ├── App.tsx             # Main app router
-│   │   ├── index.css           # Global styles
+│   │   ├── index.css           # Global styles + theme tokens
 │   │   ├── pages/
 │   │   │   ├── Index.tsx       # Landing page
 │   │   │   ├── Dashboard.tsx   # Document management
@@ -38,23 +37,36 @@ notemind-llm-qa/
 │   │   │   ├── DocUploader.tsx # Drag-and-drop file upload
 │   │   │   ├── DocSelector.tsx # Document picker
 │   │   │   ├── CitationChip.tsx# Citation display chips
-│   │   │   └── ui/             # Shadcn UI components
+│   │   │   ├── StarField.tsx   # Animated background
+│   │   │   └── ui/             # Shadcn UI components (40+)
 │   │   ├── hooks/
 │   │   │   ├── use-toast.ts    # Toast notifications
 │   │   │   └── use-mobile.tsx  # Mobile detection
-│   │   └── lib/
-│   │       ├── utils.ts        # Utility functions
-│   │       └── dummyData.ts    # Sample data for UI testing
+│   │   ├── lib/
+│   │   │   ├── utils.ts        # Utility functions
+│   │   │   └── dummyData.ts    # Sample data for UI testing
+│   │   └── test/
+│   │       └── example.test.ts # Vitest examples
+│   ├── public/                 # Static assets
 │   ├── package.json            # Node dependencies and scripts
 │   ├── vite.config.ts          # Vite build config
-│   ├── tailwind.config.ts      # Tailwind CSS config
-│   └── tsconfig.json           # TypeScript config
+│   ├── tailwind.config.ts      # Tailwind CSS config (purple/cyan theme)
+│   ├── tsconfig.json           # TypeScript config
+│   └── other config files      # ESLint, Playwright, PostCSS
 │
 ├── data/
-│   └── sample_notes.pdf        # Sample PDF for testing
+│   ├── notes_index.faiss       # FAISS vector index
+│   └── screenshots/            # Storage for screenshots
 │
-└── README.md
+├── docs/                       # Documentation
+├── .venv/                      # Python virtual environment
+├── backend dependencies        # FastAPI, PyPDF, etc.
+├── LICENSE
+├── README.md
+└── run.ps1                     # Startup script
 ```
+
+**Note:** Workspace has been optimized by removing unused duplicate folders and CSS files. Frontend structure follows industry-standard React organization.
 
 ---
 

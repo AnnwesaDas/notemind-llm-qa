@@ -58,8 +58,8 @@ const Flashcards = () => {
           </Button>
         </Link>
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md gradient-violet flex items-center justify-center">
-            <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+          <div className="h-7 w-7 rounded-md bg-accent flex items-center justify-center">
+            <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
           </div>
           <h1 className="font-serif text-xl text-foreground">Flashcards</h1>
         </div>
@@ -74,12 +74,12 @@ const Flashcards = () => {
       <main className="flex-1 flex flex-col items-center justify-center px-6">
         {completed ? (
           <div className="text-center space-y-6 animate-fade-up">
-            <div className="h-20 w-20 rounded-full gradient-violet flex items-center justify-center mx-auto glow-violet">
-              <Check className="h-10 w-10 text-primary-foreground" />
+            <div className="h-20 w-20 rounded-full bg-accent flex items-center justify-center mx-auto glow-violet">
+              <Check className="h-10 w-10 text-accent-foreground" />
             </div>
             <h2 className="font-serif text-3xl text-foreground">Deck Complete!</h2>
             <p className="text-muted-foreground">You reviewed all {total} cards. Nice work!</p>
-            <Button onClick={restart} className="gradient-violet border-0 rounded-xl">
+            <Button onClick={restart} className="bg-accent text-accent-foreground hover:bg-accent/80 border-0 rounded-xl">
               <RotateCcw className="h-4 w-4 mr-2" /> Start Over
             </Button>
           </div>

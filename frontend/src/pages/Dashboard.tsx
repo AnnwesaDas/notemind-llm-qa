@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Plus, MessageSquare, Zap, Trash2, FileText } from "lucide-react";
+import { Plus, MessageSquare, Zap, Trash2, FileText } from "lucide-react";
 import { documents, courseColorMap } from "@/lib/dummyData";
 import DocUploader from "@/components/DocUploader";
 
@@ -16,11 +16,11 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Top nav */}
       <nav className="border-b border-border/50 px-6 py-3 flex items-center justify-between backdrop-blur-sm sticky top-0 z-20 bg-background/80">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg gradient-violet flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-foreground">NoteMind</span>
+        <Link to="/" className="flex items-center">
+          <span className="text-lg font-semibold tracking-tight text-foreground">
+            <span className="text-primary">Note</span>
+            <span className="text-foreground">Mind</span>
+          </span>
         </Link>
         <div className="flex items-center gap-3">
           <Link to="/chat">
@@ -38,7 +38,7 @@ const Dashboard = () => {
               Compare
             </Button>
           </Link>
-          <Button size="sm" className="gradient-violet border-0">
+          <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/80 border-0">
             <Plus className="h-4 w-4 mr-1.5" /> New Upload
           </Button>
         </div>
