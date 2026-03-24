@@ -6,8 +6,14 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from backend.ingest import save_uploaded_file
-from backend.llm import generate_answer
+try:
+    # Package import path (e.g., uvicorn backend.app:app from project root).
+    from backend.ingest import process_uploaded_file, save_uploaded_file
+    from backend.llm import generate_answer
+except ModuleNotFoundError:
+    # Local import path (e.g., python backend/app.py or uvicorn app:app from backend).
+    from ingest import process_uploaded_file, save_uploaded_file
+    from llm import generate_answer
 
 
 # Create the FastAPI application instance.
@@ -49,14 +55,19 @@ async def upload_notes(file: UploadFile = File(...)) -> dict[str, Any]:
     allowed_extensions = {".pdf", ".txt"}
 
     try:
+        # Step 1: persist the uploaded file in data/uploads.
         saved_path = await save_uploaded_file(file=file, allowed_extensions=allowed_extensions)
+
+        # Step 2: extract text + chunk it in ingest.py and collect summary metadata.
+        ingestion_result = process_uploaded_file(saved_path)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     return {
         "success": True,
-        "message": "File uploaded successfully",
         "filename": saved_path.name,
+        "num_chunks": ingestion_result["num_chunks"],
+        "sample_chunk": ingestion_result["sample_chunk"],
     }
 
 
