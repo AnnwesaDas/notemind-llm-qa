@@ -1,0 +1,19 @@
+# Secrets
+.env
+backend/.env
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache/artifacts
+__pycache__/
+*.py[cod]
+
+# Local generated data
+data/uploads/
+data/indexes/
+*.faiss
+
+# Frontend dependencies (safety if run from repo root)
+node_modules/
