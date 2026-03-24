@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from fastapi import UploadFile
+import numpy as np
 
 try:
     # Package import path (e.g., from project root).
-    from backend.embeddings import generate_embeddings
     from backend.pdf_loader import chunk_text, extract_text_from_pdf
-    from backend.vector_store import create_index, save_index
+    from backend.vector_store import create_faiss_index, load_index, save_index, search_index
 except ModuleNotFoundError:
     # Local import path (e.g., when running from backend directory).
-    from embeddings import generate_embeddings
     from pdf_loader import chunk_text, extract_text_from_pdf
-    from vector_store import create_index, save_index
+    from vector_store import create_faiss_index, load_index, save_index, search_index
 
 
 
@@ -23,6 +23,7 @@ except ModuleNotFoundError:
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
+INDEXES_DIR = DATA_DIR / "indexes"
 INDEX_PATH = DATA_DIR / "notes_index.faiss"
 
 
@@ -64,8 +65,8 @@ def ingest_pdf_to_faiss(pdf_path: str | Path) -> int:
     if not chunks:
         raise ValueError("No chunks were created from the uploaded PDF.")
 
-    embeddings = generate_embeddings(chunks)
-    index = create_index(embeddings)
+    embeddings = embed_chunks(chunks)
+    index = create_faiss_index(embeddings)
     save_index(index, INDEX_PATH)
 
     return len(chunks)
@@ -104,12 +105,113 @@ def process_uploaded_file(file_path: str | Path) -> dict[str, Any]:
     if not chunks:
         raise ValueError("No chunks were created from the uploaded file.")
 
-    print("TEXT LENGTH:", len(text))
-    print("TOTAL CHUNKS:", len(chunks))
-    print("FIRST CHUNK LENGTH:", len(chunks[0]))
-
     sample_chunk = chunks[0][:200]
     return {
         "num_chunks": len(chunks),
         "sample_chunk": sample_chunk,
+        "chunks": chunks,
     }
+
+
+def embed_chunks(chunks: list[str]) -> np.ndarray:
+    """
+    Convert text chunks into embeddings using all-MiniLM-L6-v2.
+
+    The model loading is cached in backend/embeddings.py, so repeated calls are fast.
+    """
+    if not chunks:
+        raise ValueError("Chunk list is empty. Cannot embed chunks.")
+
+    try:
+        from backend.embeddings import generate_embeddings
+    except ModuleNotFoundError:
+        from embeddings import generate_embeddings
+
+    return generate_embeddings(chunks)
+
+
+def _get_index_path(filename: str) -> Path:
+    """Build index path as ./data/indexes/{filename}.index"""
+    return INDEXES_DIR / f"{filename}.index"
+
+
+def _get_chunk_store_path(filename: str) -> Path:
+    """Store original chunks so FAISS search results can map back to text."""
+    return INDEXES_DIR / f"{filename}.chunks.json"
+
+
+def index_uploaded_file(file_path: str | Path) -> dict[str, Any]:
+    """
+    Full Day 3 pipeline for uploaded notes:
+    extract text -> chunk -> embed -> index -> persist index + chunk map.
+    """
+    path = Path(file_path)
+    processed = process_uploaded_file(path)
+    chunks = processed["chunks"]
+
+    embeddings = embed_chunks(chunks)
+    index = create_faiss_index(embeddings)
+
+    INDEXES_DIR.mkdir(parents=True, exist_ok=True)
+    index_path = _get_index_path(path.name)
+    chunk_store_path = _get_chunk_store_path(path.name)
+
+    save_index(index, index_path)
+    chunk_store_path.write_text(json.dumps(chunks, ensure_ascii=False), encoding="utf-8")
+
+    return {
+        "filename": path.name,
+        "num_chunks": len(chunks),
+        "index_path": str(index_path),
+    }
+
+
+def _resolve_query_target(filename: str | None = None) -> tuple[Path, Path]:
+    """
+    Resolve which index/chunk files should be used for querying.
+
+    If filename is omitted, the latest index file in data/indexes is used.
+    """
+    INDEXES_DIR.mkdir(parents=True, exist_ok=True)
+
+    if filename:
+        index_path = _get_index_path(filename)
+        chunks_path = _get_chunk_store_path(filename)
+        return index_path, chunks_path
+
+    candidates = sorted(INDEXES_DIR.glob("*.index"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if not candidates:
+        raise FileNotFoundError("No FAISS index found. Upload a file first.")
+
+    index_path = candidates[0]
+    filename_stem = index_path.name.removesuffix(".index")
+    chunks_path = _get_chunk_store_path(filename_stem)
+    return index_path, chunks_path
+
+
+def search_uploaded_notes(question: str, filename: str | None = None, top_k: int = 5) -> list[str]:
+    """
+    Embed a question, search FAISS, and return the best matching text chunks.
+    """
+    cleaned_question = question.strip()
+    if not cleaned_question:
+        raise ValueError("Question cannot be empty.")
+
+    index_path, chunks_path = _resolve_query_target(filename=filename)
+    if not index_path.exists():
+        raise FileNotFoundError(f"Index file not found: {index_path}")
+    if not chunks_path.exists():
+        raise FileNotFoundError(f"Chunk store file not found: {chunks_path}")
+
+    chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
+    index = load_index(index_path)
+
+    question_embedding = embed_chunks([cleaned_question])
+    search_result = search_index(index=index, query_embedding=question_embedding, top_k=top_k)
+
+    matched_chunks: list[str] = []
+    for chunk_index in search_result["indices"]:
+        if isinstance(chunk_index, int) and 0 <= chunk_index < len(chunks):
+            matched_chunks.append(chunks[chunk_index])
+
+    return matched_chunks

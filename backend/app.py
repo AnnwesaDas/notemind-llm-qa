@@ -8,12 +8,10 @@ from pydantic import BaseModel
 
 try:
     # Package import path (e.g., uvicorn backend.app:app from project root).
-    from backend.ingest import process_uploaded_file, save_uploaded_file
-    from backend.llm import generate_answer
+    from backend.ingest import index_uploaded_file, save_uploaded_file, search_uploaded_notes
 except ModuleNotFoundError:
     # Local import path (e.g., python backend/app.py or uvicorn app:app from backend).
-    from ingest import process_uploaded_file, save_uploaded_file
-    from llm import generate_answer
+    from ingest import index_uploaded_file, save_uploaded_file, search_uploaded_notes
 
 
 # Create the FastAPI application instance.
@@ -34,6 +32,7 @@ class QueryRequest(BaseModel):
     """Request body for the /api/query endpoint."""
 
     question: str
+    filename: str | None = None
 
 
 @app.get("/")
@@ -58,25 +57,39 @@ async def upload_notes(file: UploadFile = File(...)) -> dict[str, Any]:
         # Step 1: persist the uploaded file in data/uploads.
         saved_path = await save_uploaded_file(file=file, allowed_extensions=allowed_extensions)
 
-        # Step 2: extract text + chunk it in ingest.py and collect summary metadata.
-        ingestion_result = process_uploaded_file(saved_path)
+        # Step 2: extract, chunk, embed, and save a FAISS index for this file.
+        ingestion_result = index_uploaded_file(saved_path)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     return {
-        "success": True,
         "filename": saved_path.name,
         "num_chunks": ingestion_result["num_chunks"],
-        "sample_chunk": ingestion_result["sample_chunk"],
+        "message": "Indexed successfully",
     }
 
 
 @app.post("/api/query")
-def query_notes(payload: QueryRequest) -> dict[str, str]:
+def query_notes(payload: QueryRequest) -> dict[str, Any]:
     """
-    Accept a user question and return a placeholder answer.
+    Retrieval-only query endpoint for Day 3.
 
-    Retrieval + LLM orchestration will be expanded in Day 2.
+    1) Embed question
+    2) Search FAISS index
+    3) Return top matching chunks
     """
-    answer = generate_answer(question=payload.question)
-    return {"answer": answer}
+    try:
+        top_chunks = search_uploaded_notes(
+            question=payload.question,
+            filename=payload.filename,
+            top_k=5,
+        )
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return {
+        "question": payload.question,
+        "top_chunks": top_chunks,
+    }

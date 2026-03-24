@@ -1,7 +1,7 @@
 # NoteMind — AI-Powered Study Assistant
 
 A full-stack RAG (Retrieval-Augmented Generation) application that lets you
-upload study documents and ask questions about them using AI.
+upload study documents and retrieve the most relevant chunks using vector search.
 
 ---
 
@@ -74,11 +74,11 @@ notemind-llm-qa/
 
 | Layer     | Technology                          |
 |-----------|-------------------------------------|
-| Backend   | FastAPI, Python 3.13                |
+| Backend   | FastAPI, Python 3.x                 |
 | Frontend  | React 18, TypeScript, Vite          |
 | Styling   | Tailwind CSS, Shadcn UI             |
 | Embeddings| sentence-transformers (MiniLM-L6-v2)|
-| Vector DB | FAISS                               |
+| Vector DB | FAISS (faiss-cpu)                   |
 | PDF Parse | pypdf                               |
 
 ---
@@ -99,16 +99,17 @@ Health check — confirms the server is running.
 ---
 
 ### `POST /api/upload`
-Upload a PDF or TXT file. Saves it to `data/uploads/`.
+Upload a PDF or TXT file, chunk it, generate embeddings, build a FAISS index,
+and persist artifacts to disk.
 
 **Request:** `multipart/form-data` with a `file` field.
 
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "File uploaded successfully",
-  "filename": "my_notes.pdf"
+  "filename": "my_notes.pdf",
+  "num_chunks": 24,
+  "message": "Indexed successfully"
 }
 ```
 
@@ -118,7 +119,7 @@ Upload a PDF or TXT file. Saves it to `data/uploads/`.
 ---
 
 ### `POST /api/query`
-Ask a question about your uploaded notes.
+Retrieve top matching chunks for a question from indexed notes.
 
 **Request:**
 ```json
@@ -127,29 +128,42 @@ Ask a question about your uploaded notes.
 }
 ```
 
-**Response:**
+Optional request field:
 ```json
 {
-  "answer": "This is a placeholder answer."
+  "question": "What are the key concepts in my notes?",
+  "filename": "my_notes.pdf"
 }
 ```
 
-> Note: Real retrieval and LLM integration coming in Day 2.
+**Response:**
+```json
+{
+  "question": "What are the key concepts in my notes?",
+  "top_chunks": [
+    "chunk text 1",
+    "chunk text 2"
+  ]
+}
+```
+
+**Errors:**
+- `400` — invalid question input
+- `404` — missing index/chunk files (upload first)
 
 ---
 
 ## RAG Pipeline Status
 
-| Step                        | File              | Status         |
-|-----------------------------|-------------------|----------------|
-| Extract text from PDF       | `pdf_loader.py`   | ✅ Complete    |
-| Chunk text with overlap     | `pdf_loader.py`   | ✅ Complete    |
-| Generate embeddings         | `embeddings.py`   | ✅ Complete    |
-| Store embeddings in FAISS   | `vector_store.py` | ✅ Complete    |
-| Upload file via API         | `ingest.py`       | ✅ Complete    |
-| Search FAISS by query       | `retrieval.py`    | 🔲 Day 2      |
-| Generate answer with LLM    | `llm.py`          | 🔲 Day 2      |
-| Connect retrieval to API    | `app.py`          | 🔲 Day 2      |
+| Step                               | File(s)                         | Status      |
+|------------------------------------|----------------------------------|-------------|
+| Extract text from PDF              | `pdf_loader.py`                  | ✅ Complete |
+| Chunk text with overlap            | `pdf_loader.py`                  | ✅ Complete |
+| Generate embeddings (MiniLM-L6-v2) | `embeddings.py`, `ingest.py`     | ✅ Complete |
+| Store/load/search vectors in FAISS | `vector_store.py`                | ✅ Complete |
+| Build index on upload              | `ingest.py`, `app.py`            | ✅ Complete |
+| Retrieval endpoint (top chunks)    | `ingest.py`, `app.py`            | ✅ Complete |
+| LLM answer generation              | `llm.py`                         | 🔲 Pending  |
 
 ---
 
@@ -181,6 +195,35 @@ python -m uvicorn backend.app:app --reload
 Backend runs on: **http://127.0.0.1:8000**
 
 API docs available at: **http://127.0.0.1:8000/docs**
+
+---
+
+## Day 3 Retrieval Testing
+
+1) Upload and index a file
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/upload" \
+  -F "file=@data/sample_notes.pdf"
+```
+
+2) Query top chunks
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/query" \
+  -H "Content-Type: application/json" \
+  -d "{\"question\":\"What is this document about?\"}"
+```
+
+3) Query a specific uploaded file
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/query" \
+  -H "Content-Type: application/json" \
+  -d "{\"question\":\"Summarize the key points\",\"filename\":\"sample_notes.pdf\"}"
+```
+
+This stage is retrieval-only: no LLM answer synthesis yet.
 
 ---
 
@@ -237,16 +280,13 @@ First-time setup (installs backend + frontend dependencies, then starts both):
 
 ## Current Status
 
-### ✅ Working (Day 1)
-- FastAPI server running with CORS enabled
-- File upload endpoint accepting PDF and TXT files
-- Files saved to `data/uploads/`
-- Dummy query endpoint returning placeholder answer
-- Full frontend UI with chat, dashboard, flashcards, and compare pages
-- PDF loading, chunking, embedding, and FAISS indexing modules ready
+### ✅ Working (Day 3 Backend)
+- FastAPI server with CORS enabled
+- Upload endpoint for PDF/TXT
+- Ingestion pipeline: extract → chunk → embed → FAISS index save
+- Query endpoint returns top 5 retrieved chunks
+- Missing index/chunk files handled with API errors
 
-### 🔲 Coming Next (Day 2)
-- Wire up FAISS search to the query endpoint
-- Embed user questions and find matching chunks
-- Integrate an LLM to generate real answers from retrieved context
-- Return cited answers linked to source documents
+### 🔲 Next Stage
+- Add LLM answer generation on top of retrieved chunks
+- Add citations and confidence metadata in responses
