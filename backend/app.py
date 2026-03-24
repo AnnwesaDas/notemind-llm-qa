@@ -9,9 +9,11 @@ from pydantic import BaseModel
 try:
     # Package import path (e.g., uvicorn backend.app:app from project root).
     from backend.ingest import index_uploaded_file, save_uploaded_file, search_uploaded_notes
+    from backend.llm import generate_answer
 except ModuleNotFoundError:
     # Local import path (e.g., python backend/app.py or uvicorn app:app from backend).
     from ingest import index_uploaded_file, save_uploaded_file, search_uploaded_notes
+    from llm import generate_answer
 
 
 # Create the FastAPI application instance.
@@ -72,11 +74,12 @@ async def upload_notes(file: UploadFile = File(...)) -> dict[str, Any]:
 @app.post("/api/query")
 def query_notes(payload: QueryRequest) -> dict[str, Any]:
     """
-    Retrieval-only query endpoint for Day 3.
+    Day 4 retrieval + generation endpoint.
 
     1) Embed question
     2) Search FAISS index
-    3) Return top matching chunks
+    3) Generate answer from retrieved chunks
+    4) Return answer + raw source chunks
     """
     try:
         top_chunks = search_uploaded_notes(
@@ -84,12 +87,20 @@ def query_notes(payload: QueryRequest) -> dict[str, Any]:
             filename=payload.filename,
             top_k=5,
         )
+
+        answer = generate_answer(
+            question=payload.question,
+            context_chunks=top_chunks,
+        )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
     return {
         "question": payload.question,
-        "top_chunks": top_chunks,
+        "answer": answer,
+        "sources": top_chunks,
     }
