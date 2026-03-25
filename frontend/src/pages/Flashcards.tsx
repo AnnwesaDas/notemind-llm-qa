@@ -3,15 +3,15 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Sparkles, ArrowLeft, ArrowRight, RotateCcw, Check } from "lucide-react";
-import { dummyFlashcards } from "@/lib/dummyData";
 import confetti from "canvas-confetti";
 
 const Flashcards = () => {
+  const cards: Array<{ id: string; question: string; answer: string }> = [];
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [completed, setCompleted] = useState(false);
-  const total = dummyFlashcards.length;
-  const card = dummyFlashcards[currentIndex];
+  const total = cards.length;
+  const card = cards[currentIndex];
 
   const flip = useCallback(() => setIsFlipped((f) => !f), []);
 
@@ -65,14 +65,26 @@ const Flashcards = () => {
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
-            {currentIndex + 1} / {total}
+            {total === 0 ? "0 / 0" : `${currentIndex + 1} / ${total}`}
           </span>
-          <Progress value={((currentIndex + 1) / total) * 100} className="w-32 h-2 bg-secondary" />
+          <Progress value={total === 0 ? 0 : ((currentIndex + 1) / total) * 100} className="w-32 h-2 bg-secondary" />
         </div>
       </nav>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6">
-        {completed ? (
+        {total === 0 ? (
+          <div className="text-center space-y-4 animate-fade-up max-w-lg">
+            <h2 className="font-serif text-3xl text-foreground">No flashcards yet</h2>
+            <p className="text-muted-foreground">
+              Sample flashcards were removed. Connect flashcard generation to your backend to show real cards.
+            </p>
+            <Link to="/chat">
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/80 border-0 rounded-xl">
+                Go to Chat
+              </Button>
+            </Link>
+          </div>
+        ) : completed ? (
           <div className="text-center space-y-6 animate-fade-up">
             <div className="h-20 w-20 rounded-full bg-accent flex items-center justify-center mx-auto glow-violet">
               <Check className="h-10 w-10 text-accent-foreground" />
@@ -91,12 +103,12 @@ const Flashcards = () => {
                 {/* Front */}
                 <div className="absolute inset-0 backface-hidden glass glass-hover rounded-2xl p-8 flex flex-col items-center justify-center text-center">
                   <span className="text-6xl text-primary/20 font-serif absolute top-6 right-8 select-none">?</span>
-                  <p className="font-serif text-xl text-foreground leading-relaxed">{card.question}</p>
+                  <p className="font-serif text-xl text-foreground leading-relaxed">{card?.question}</p>
                 </div>
                 {/* Back */}
                 <div className="absolute inset-0 backface-hidden rotate-y-180 rounded-2xl p-8 flex flex-col items-center justify-center text-center border border-primary/30 bg-primary/5 glow-violet">
                   <Check className="h-6 w-6 text-primary mb-4" />
-                  <p className="text-foreground leading-relaxed">{card.answer}</p>
+                  <p className="text-foreground leading-relaxed">{card?.answer}</p>
                 </div>
               </div>
             </div>

@@ -5,6 +5,5 @@ faiss-cpu
 sentence-transformers
 pypdf
 numpy
-openai
 python-dotenv
 requests

@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { Clock, FileText, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import DocSelector from "./DocSelector";
+import DocUploader from "./DocUploader";
+import { getUploadedDocs, hydrateUploadedDocsFromBackend, subscribeUploadedDocs } from "@/lib/uploadedDocs";
 
 const memoryHistory = [
   { id: "h1", title: "Quantum Mechanics Review", date: "2 hours ago" },
@@ -10,9 +13,21 @@ const memoryHistory = [
 
 interface AppSidebarProps {
   onNewChat?: () => void;
+  uploadedFilename?: string | null;
+  setUploadedFilename?: (filename: string) => void;
 }
 
-const AppSidebar = ({ onNewChat }: AppSidebarProps) => {
+const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSidebarProps) => {
+  const [docCount, setDocCount] = useState(getUploadedDocs().length);
+
+  useEffect(() => {
+    void hydrateUploadedDocsFromBackend();
+
+    const sync = () => setDocCount(getUploadedDocs().length);
+    const unsubscribe = subscribeUploadedDocs(sync);
+    return unsubscribe;
+  }, []);
+
   return (
     <aside className="relative z-10 w-[280px] border-r border-border/50 bg-sidebar/90 backdrop-blur-sm flex flex-col h-full shrink-0">
       <div className="px-6 py-4 border-b border-border/50">
@@ -40,9 +55,19 @@ const AppSidebar = ({ onNewChat }: AppSidebarProps) => {
           </div>
           <div className="flex items-center justify-between px-3 mb-2">
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Selectable Context</p>
-            <span className="text-[10px] text-primary font-medium">2 active</span>
+            <span className="text-[10px] text-primary font-medium">{docCount} active</span>
           </div>
           <DocSelector compact />
+
+          <div className="mt-3 px-2">
+            {/* Reuse existing upload UI and connect filename to shared Chat page state. */}
+            <DocUploader onUploadSuccess={setUploadedFilename} />
+            {uploadedFilename && (
+              <p className="mt-2 text-[10px] text-muted-foreground truncate" title={uploadedFilename}>
+                Active file: {uploadedFilename}
+              </p>
+            )}
+          </div>
         </section>
 
         <section className="glass-panel rounded-2xl px-3 pb-3 pt-4">

@@ -1,8 +1,14 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Plus, MessageSquare, Zap, Trash2, FileText } from "lucide-react";
-import { documents, courseColorMap } from "@/lib/dummyData";
 import DocUploader from "@/components/DocUploader";
+import {
+  getUploadedDocs,
+  hydrateUploadedDocsFromBackend,
+  subscribeUploadedDocs,
+  type UploadedDoc,
+} from "@/lib/uploadedDocs";
 
 const bentoSizes = [
   "sm:col-span-2 sm:row-span-1",
@@ -12,6 +18,21 @@ const bentoSizes = [
 ];
 
 const Dashboard = () => {
+  const [documents, setDocuments] = useState<UploadedDoc[]>(getUploadedDocs());
+
+  useEffect(() => {
+    void hydrateUploadedDocsFromBackend();
+
+    const sync = () => setDocuments(getUploadedDocs());
+    const unsubscribe = subscribeUploadedDocs(sync);
+    return unsubscribe;
+  }, []);
+
+  const formatUploadDate = (uploadedAtIso: string) => {
+    const date = new Date(uploadedAtIso);
+    return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top nav */}
@@ -54,6 +75,11 @@ const Dashboard = () => {
 
         <div>
           <h2 className="font-serif text-xl text-foreground mb-4">Your Documents</h2>
+          {documents.length === 0 && (
+            <div className="glass rounded-2xl p-5 text-sm text-muted-foreground">
+              No uploaded documents yet. Upload a PDF or TXT file above.
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 auto-rows-min">
             {documents.map((doc, i) => (
               <div
@@ -62,17 +88,17 @@ const Dashboard = () => {
                 style={{ animationDelay: `${i * 0.08}s` }}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${courseColorMap[doc.courseColor].split(" ")[0]}`}>
-                    <FileText className={`h-5 w-5 ${courseColorMap[doc.courseColor].split(" ")[1]}`} />
+                  <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/15">
+                    <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground truncate">{doc.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{doc.uploadDate} · {doc.wordCount.toLocaleString()} words</p>
+                    <p className="font-medium text-foreground truncate">{doc.filename}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatUploadDate(doc.uploadedAtIso)}{typeof doc.numChunks === "number" ? ` · ${doc.numChunks} chunks` : ""}</p>
                   </div>
                 </div>
 
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${courseColorMap[doc.courseColor]}`}>
-                  {doc.courseTag}
+                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium text-primary border-primary/30 bg-primary/10">
+                  Uploaded
                 </span>
 
                 <div className="flex gap-2 pt-1">

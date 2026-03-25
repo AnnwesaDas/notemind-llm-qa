@@ -8,11 +8,21 @@ from pydantic import BaseModel
 
 try:
     # Package import path (e.g., uvicorn backend.app:app from project root).
-    from backend.ingest import index_uploaded_file, save_uploaded_file, search_uploaded_notes
+    from backend.ingest import (
+        index_uploaded_file,
+        list_indexed_documents,
+        save_uploaded_file,
+        search_uploaded_notes,
+    )
     from backend.llm import generate_answer
 except ModuleNotFoundError:
     # Local import path (e.g., python backend/app.py or uvicorn app:app from backend).
-    from ingest import index_uploaded_file, save_uploaded_file, search_uploaded_notes
+    from ingest import (
+        index_uploaded_file,
+        list_indexed_documents,
+        save_uploaded_file,
+        search_uploaded_notes,
+    )
     from llm import generate_answer
 
 
@@ -69,6 +79,12 @@ async def upload_notes(file: UploadFile = File(...)) -> dict[str, Any]:
         "num_chunks": ingestion_result["num_chunks"],
         "message": "Indexed successfully",
     }
+
+
+@app.get("/api/documents")
+def get_documents() -> dict[str, list[dict[str, Any]]]:
+    """List indexed documents so frontend can hydrate state on startup."""
+    return {"documents": list_indexed_documents()}
 
 
 @app.post("/api/query")

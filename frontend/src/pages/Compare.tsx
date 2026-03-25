@@ -1,33 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, ArrowLeft, ChevronDown } from "lucide-react";
-import { documents, courseColorMap } from "@/lib/dummyData";
-
-const compareData = {
-  question: "How do sorting algorithms differ in their approach to organizing data?",
-  docA: {
-    name: "CS101_Lecture3.pdf",
-    evidence: [
-      { text: "Merge sort uses a divide-and-conquer strategy, recursively splitting the array into halves until single elements remain, then merging them back in sorted order.", highlight: "amber" },
-      { text: "The key advantage of merge sort is its guaranteed O(n log n) time complexity regardless of input distribution.", highlight: "amber" },
-    ],
-  },
-  docB: {
-    name: "MATH_Notes.pdf",
-    evidence: [
-      { text: "Quick sort selects a pivot element and partitions the array such that elements smaller than the pivot go left, and larger go right.", highlight: "blue" },
-      { text: "While quick sort averages O(n log n), its worst-case is O(n²) when the pivot selection is consistently poor.", highlight: "blue" },
-      { text: "In practice, quick sort often outperforms merge sort due to better cache locality and lower constant factors.", highlight: "blue" },
-    ],
-  },
-  synthesis: "Both merge sort and quick sort employ divide-and-conquer strategies but differ fundamentally in approach. Merge sort guarantees O(n log n) by splitting first and merging in order, while quick sort partitions around a pivot with better practical performance but worse worst-case guarantees. The choice depends on whether consistency (merge sort) or average-case speed (quick sort) is prioritized.",
-};
+import { getUploadedDocs, subscribeUploadedDocs, type UploadedDoc } from "@/lib/uploadedDocs";
 
 const Compare = () => {
-  const [docA, setDocA] = useState(documents[0]);
-  const [docB, setDocB] = useState(documents[3]);
-  const [asked, setAsked] = useState(true);
+  const [docs, setDocs] = useState<UploadedDoc[]>(getUploadedDocs());
+
+  useEffect(() => {
+    const sync = () => setDocs(getUploadedDocs());
+    const unsubscribe = subscribeUploadedDocs(sync);
+    return unsubscribe;
+  }, []);
+
+  const docA = docs[0];
+  const docB = docs[1];
+  const canCompare = Boolean(docA && docB);
 
   return (
     <div className="min-h-screen bg-background">
@@ -50,14 +38,14 @@ const Compare = () => {
         {/* Doc selectors */}
         <div className="flex items-center gap-4 justify-center">
           <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-2 min-w-[200px]">
-            <span className={`h-2 w-2 rounded-full ${courseColorMap[docA.courseColor].split(" ")[0]}`} />
-            <span className="text-sm text-foreground">{docA.name}</span>
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            <span className="text-sm text-foreground">{docA?.filename ?? "Upload first document"}</span>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
           </div>
           <span className="text-muted-foreground text-sm font-medium">vs</span>
           <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-2 min-w-[200px]">
-            <span className={`h-2 w-2 rounded-full ${courseColorMap[docB.courseColor].split(" ")[0]}`} />
-            <span className="text-sm text-foreground">{docB.name}</span>
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="text-sm text-foreground">{docB?.filename ?? "Upload second document"}</span>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
           </div>
         </div>
@@ -65,21 +53,25 @@ const Compare = () => {
         {/* Question */}
         <div className="text-center">
           <p className="text-muted-foreground text-sm mb-1">Question</p>
-          <p className="text-foreground font-medium">{compareData.question}</p>
+          <p className="text-foreground font-medium">
+            {canCompare
+              ? "Comparison endpoint is not connected yet. Use Chat to ask focused questions per document."
+              : "Upload at least 2 documents to compare."}
+          </p>
         </div>
 
-        {asked && (
+        {canCompare && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Doc A evidence */}
             <div className="space-y-4 animate-fade-up" style={{ animationDelay: "0.1s" }}>
               <h3 className="text-sm font-medium text-amber-400 uppercase tracking-wider">
-                {compareData.docA.name}
+                {docA.filename}
               </h3>
-              {compareData.docA.evidence.map((e, i) => (
-                <div key={i} className="glass rounded-xl p-4 border-l-2 border-amber-500/50">
-                  <p className="text-sm text-foreground/90 leading-relaxed">{e.text}</p>
-                </div>
-              ))}
+              <div className="glass rounded-xl p-4 border-l-2 border-amber-500/50">
+                <p className="text-sm text-foreground/90 leading-relaxed">
+                  Ready for comparison once backend compare analysis is connected.
+                </p>
+              </div>
             </div>
 
             {/* Synthesis */}
@@ -88,20 +80,22 @@ const Compare = () => {
                 Synthesis
               </h3>
               <div className="rounded-2xl p-5 border border-primary/30 bg-primary/5 glow-violet">
-                <p className="font-serif text-base text-foreground leading-relaxed">{compareData.synthesis}</p>
+                <p className="font-serif text-base text-foreground leading-relaxed">
+                  No sample synthesis shown. Connect a compare backend route to generate real side-by-side analysis.
+                </p>
               </div>
             </div>
 
             {/* Doc B evidence */}
             <div className="space-y-4 animate-fade-up" style={{ animationDelay: "0.4s" }}>
               <h3 className="text-sm font-medium text-blue-400 uppercase tracking-wider">
-                {compareData.docB.name}
+                {docB.filename}
               </h3>
-              {compareData.docB.evidence.map((e, i) => (
-                <div key={i} className="glass rounded-xl p-4 border-l-2 border-blue-500/50">
-                  <p className="text-sm text-foreground/90 leading-relaxed">{e.text}</p>
-                </div>
-              ))}
+              <div className="glass rounded-xl p-4 border-l-2 border-blue-500/50">
+                <p className="text-sm text-foreground/90 leading-relaxed">
+                  Ready for comparison once backend compare analysis is connected.
+                </p>
+              </div>
             </div>
           </div>
         )}

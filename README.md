@@ -12,7 +12,7 @@ notemind-llm-qa/
 │   ├── app.py              # FastAPI app — routes and server setup
 │   ├── ingest.py           # File upload and ingestion logic
 │   ├── retrieval.py        # FAISS retrieval logic (stub for now)
-│   ├── llm.py              # LLM answer generation (stub for now)
+│   ├── llm.py              # LLM answer generation (Ollama)
 │   ├── embeddings.py       # Sentence transformer embeddings
 │   ├── pdf_loader.py       # PDF text extraction and chunking
 │   ├── vector_store.py     # FAISS index create/save/load
@@ -163,7 +163,7 @@ Optional request field:
 | Store/load/search vectors in FAISS | `vector_store.py`                | ✅ Complete |
 | Build index on upload              | `ingest.py`, `app.py`            | ✅ Complete |
 | Retrieval endpoint (top chunks)    | `ingest.py`, `app.py`            | ✅ Complete |
-| LLM answer generation              | `llm.py`                         | 🔲 Pending  |
+| LLM answer generation              | `llm.py`                         | ✅ Complete |
 
 ---
 
@@ -223,7 +223,26 @@ curl -X POST "http://127.0.0.1:8000/api/query" \
   -d "{\"question\":\"Summarize the key points\",\"filename\":\"sample_notes.pdf\"}"
 ```
 
-This stage is retrieval-only: no LLM answer synthesis yet.
+This stage includes retrieval and answer synthesis from the selected LLM provider.
+
+---
+
+## LLM Setup (Ollama)
+
+Create/update `backend/.env`:
+
+```env
+# Ollama settings
+OLLAMA_URL=http://localhost:11434/api/generate
+OLLAMA_MODEL=phi3
+```
+
+### Ollama quick start
+
+```bash
+ollama serve
+ollama pull phi3
+```
 
 ---
 
@@ -288,5 +307,4 @@ First-time setup (installs backend + frontend dependencies, then starts both):
 - Missing index/chunk files handled with API errors
 
 ### 🔲 Next Stage
-- Add LLM answer generation on top of retrieved chunks
 - Add citations and confidence metadata in responses

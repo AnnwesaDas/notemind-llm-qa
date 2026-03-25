@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
+import re
 from pathlib import Path
 
 import requests
-from openai import OpenAI
 from dotenv import load_dotenv
 
 
@@ -14,20 +13,45 @@ load_dotenv(dotenv_path=BACKEND_DIR / ".env")
 load_dotenv(dotenv_path=BACKEND_DIR.parent / ".env")
 
 
-@lru_cache(maxsize=1)
-def _get_openai_client() -> OpenAI:
-    """Create and cache an OpenAI client using OPENAI_API_KEY."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set.")
+DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
+DEFAULT_OLLAMA_MODEL = "phi3"
 
-    return OpenAI(api_key=api_key)
+
+def _is_non_document_query(question: str) -> bool:
+    """Detect short greeting/chit-chat prompts that should not run doc QA."""
+    normalized = question.strip().lower()
+    if not normalized:
+        return True
+
+    greetings = {
+        "hi",
+        "hello",
+        "hey",
+        "yo",
+        "sup",
+        "hola",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "how are you",
+        "thanks",
+        "thank you",
+    }
+    if normalized in greetings:
+        return True
+
+    # Treat tiny non-specific prompts as non-document queries.
+    alpha_tokens = re.findall(r"[a-zA-Z]+", normalized)
+    if len(alpha_tokens) <= 2 and not normalized.endswith("?"):
+        return True
+
+    return False
 
 
 def query_llm(prompt: str) -> str:
     """Query a local Ollama model and return the generated response text."""
-    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
-    model = os.getenv("OLLAMA_MODEL", "phi3")
+    ollama_url = os.getenv("OLLAMA_URL", DEFAULT_OLLAMA_URL)
+    model = os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
 
     try:
         response = requests.post(
@@ -62,37 +86,34 @@ def generate_answer(question: str, context_chunks: list[str]) -> str:
     if not cleaned_question:
         raise ValueError("Question cannot be empty.")
 
+    if _is_non_document_query(cleaned_question):
+        return "Not found in provided documents"
+
     cleaned_chunks = [chunk.strip() for chunk in context_chunks if chunk and chunk.strip()]
     if not cleaned_chunks:
         return "Not found in provided documents"
 
     context = "\n\n".join(cleaned_chunks)
-    prompt = (
-        "You are an AI study assistant. Answer the question using ONLY the provided context.\n\n"
-        f"Context:\n{context}\n\n"
-        f"Question:\n{cleaned_question}\n\n"
-        "Instructions:\n"
-        "- Be clear and concise\n"
-        "- If answer not in context, say 'Not found in provided documents'"
-    )
+    question = cleaned_question
+    prompt = f"""
+You are an AI study assistant.
 
-    llm_provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+Answer ONLY using the provided context.
 
-    if llm_provider == "ollama":
-        answer = query_llm(prompt)
-    else:
-        model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+Context:
+{context}
 
-        try:
-            client = _get_openai_client()
-            response = client.responses.create(
-                model=model_name,
-                input=prompt,
-            )
-        except Exception as error:
-            raise RuntimeError(f"OpenAI API request failed: {error}") from error
+Question:
+{question}
 
-        answer = (response.output_text or "").strip()
+STRICT RULES:
+- Use ONLY information from the context
+- Do NOT add extra knowledge
+- Keep answer under 5-6 lines
+- If answer not found, say: "Not found in provided documents"
+"""
+
+    answer = query_llm(prompt)
 
     if not answer:
         return "Not found in provided documents"

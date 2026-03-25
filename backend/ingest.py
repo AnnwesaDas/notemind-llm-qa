@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -215,3 +216,41 @@ def search_uploaded_notes(question: str, filename: str | None = None, top_k: int
             matched_chunks.append(chunks[chunk_index])
 
     return matched_chunks
+
+
+def list_indexed_documents() -> list[dict[str, Any]]:
+    """Return indexed documents available under data/indexes."""
+    INDEXES_DIR.mkdir(parents=True, exist_ok=True)
+
+    documents: list[dict[str, Any]] = []
+    candidates = sorted(
+        INDEXES_DIR.glob("*.index"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    for index_path in candidates:
+        filename = index_path.name.removesuffix(".index")
+        chunk_store_path = _get_chunk_store_path(filename)
+
+        num_chunks = 0
+        if chunk_store_path.exists():
+            try:
+                chunk_data = json.loads(chunk_store_path.read_text(encoding="utf-8"))
+                if isinstance(chunk_data, list):
+                    num_chunks = len(chunk_data)
+            except (json.JSONDecodeError, OSError):
+                num_chunks = 0
+
+        documents.append(
+            {
+                "filename": filename,
+                "num_chunks": num_chunks,
+                "uploaded_at_iso": datetime.fromtimestamp(
+                    index_path.stat().st_mtime,
+                    tz=timezone.utc,
+                ).isoformat(),
+            }
+        )
+
+    return documents

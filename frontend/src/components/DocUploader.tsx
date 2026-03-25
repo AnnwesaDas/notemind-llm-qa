@@ -1,8 +1,14 @@
 import { Upload, FileUp } from "lucide-react";
 import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { addUploadedDoc } from "@/lib/uploadedDocs";
 
-const DocUploader = () => {
+interface DocUploaderProps {
+  // Optional callback so parent pages can store the uploaded filename in shared state.
+  onUploadSuccess?: (filename: string) => void;
+}
+
+const DocUploader = ({ onUploadSuccess }: DocUploaderProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,13 +43,23 @@ const DocUploader = () => {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8000/api/upload", {
+      // Use the FastAPI backend endpoint provided for Day 5 integration.
+      const response = await fetch("http://127.0.0.1:8000/api/upload", {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Upload failed");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Upload failed");
+      }
+
       const data = await response.json();
+
+      addUploadedDoc(data.filename, data.num_chunks);
+
+      // Push filename up to parent state so chat can query the selected upload.
+      onUploadSuccess?.(data.filename);
 
       toast({
         title: "Success",
@@ -53,7 +69,7 @@ const DocUploader = () => {
       console.error("Error:", error);
       toast({
         title: "Upload failed",
-        description: "There was an error uploading your file",
+        description: error instanceof Error ? error.message : "There was an error uploading your file",
         variant: "destructive",
       });
     } finally {

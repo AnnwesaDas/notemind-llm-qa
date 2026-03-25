@@ -4,14 +4,31 @@ import { Send, Bot, User, Sparkles } from "lucide-react";
 import CitationChip from "./CitationChip";
 import { type ChatMessage } from "@/lib/dummyData";
 
-interface ChatWindowProps {
-  resetSignal?: number;
+export interface ChatUiMessage extends ChatMessage {
+  // Raw retrieval chunks returned from backend `/api/query`.
+  sources?: string[];
 }
 
-const ChatWindow = ({ resetSignal = 0 }: ChatWindowProps) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+interface ChatWindowProps {
+  resetSignal?: number;
+  // Lifted chat state from parent (`Chat.tsx`) so the page owns message/loading lifecycle.
+  messages: ChatUiMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatUiMessage[]>>;
+  loading: boolean;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  // Filename selected/uploaded in shared parent state.
+  uploadedFilename: string | null;
+}
+
+const ChatWindow = ({
+  resetSignal = 0,
+  messages,
+  setMessages,
+  loading,
+  setLoading,
+  uploadedFilename,
+}: ChatWindowProps) => {
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,19 +55,29 @@ const ChatWindow = ({ resetSignal = 0 }: ChatWindowProps) => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/query", {
+      // Send both question and uploaded filename to backend query endpoint.
+      const response = await fetch("http://127.0.0.1:8000/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: input }),
+        body: JSON.stringify({
+          question: input,
+          filename: uploadedFilename,
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to get response");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to get response");
+      }
+
       const data = await response.json();
 
-      const aiMessage: ChatMessage = {
+      const aiMessage: ChatUiMessage = {
         id: (Date.now() + 1).toString(),
         role: "ai",
         content: data.answer,
+        // Store returned source chunks so they can be rendered below AI answer.
+        sources: Array.isArray(data.sources) ? data.sources : [],
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -59,7 +86,7 @@ const ChatWindow = ({ resetSignal = 0 }: ChatWindowProps) => {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: "Something went wrong, please try again",
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -121,6 +148,20 @@ const ChatWindow = ({ resetSignal = 0 }: ChatWindowProps) => {
                   ))}
                 </div>
               )}
+
+              {/* Show backend source chunks as compact scrollable cards below AI responses. */}
+              {msg.role === "ai" && msg.sources && msg.sources.length > 0 && (
+                <div className="space-y-2">
+                  {msg.sources.map((source, sourceIndex) => (
+                    <div
+                      key={`${msg.id}-source-${sourceIndex}`}
+                      className="glass rounded-xl px-3 py-2 text-xs text-muted-foreground max-h-24 overflow-y-auto"
+                    >
+                      {source}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {msg.role === "user" && (
@@ -138,6 +179,7 @@ const ChatWindow = ({ resetSignal = 0 }: ChatWindowProps) => {
               <Bot className="h-4 w-4 text-primary" />
             </div>
             <div className="glass rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5 items-center">
+              <span className="text-xs text-muted-foreground mr-1">Thinking...</span>
               <span className="h-2 w-2 rounded-full bg-muted-foreground animate-dot-1" />
               <span className="h-2 w-2 rounded-full bg-muted-foreground animate-dot-2" />
               <span className="h-2 w-2 rounded-full bg-muted-foreground animate-dot-3" />
