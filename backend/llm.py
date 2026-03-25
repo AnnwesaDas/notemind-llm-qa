@@ -119,3 +119,26 @@ STRICT RULES:
         return "Not found in provided documents"
 
     return answer
+
+
+def generate_general_answer(question: str) -> str:
+    """Generate a normal conversational response without document retrieval."""
+    cleaned_question = question.strip()
+    if not cleaned_question:
+        raise ValueError("Question cannot be empty.")
+
+    prompt = f"""
+You are a helpful AI assistant.
+
+Respond naturally and clearly to the user question.
+Keep the response concise and practical.
+
+Question:
+{cleaned_question}
+"""
+
+    answer = query_llm(prompt)
+    if not answer:
+        raise RuntimeError("Assistant response was empty.")
+
+    return answer

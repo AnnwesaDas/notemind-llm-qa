@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +14,7 @@ try:
         save_uploaded_file,
         search_uploaded_notes,
     )
-    from backend.llm import generate_answer
+    from backend.llm import generate_answer, generate_general_answer
 except ModuleNotFoundError:
     # Local import path (e.g., python backend/app.py or uvicorn app:app from backend).
     from ingest import (
@@ -23,7 +23,7 @@ except ModuleNotFoundError:
         save_uploaded_file,
         search_uploaded_notes,
     )
-    from llm import generate_answer
+    from llm import generate_answer, generate_general_answer
 
 
 # Create the FastAPI application instance.
@@ -45,6 +45,7 @@ class QueryRequest(BaseModel):
 
     question: str
     filename: str | None = None
+    mode: Literal["document", "assistant"] = "document"
 
 
 @app.get("/")
@@ -98,16 +99,20 @@ def query_notes(payload: QueryRequest) -> dict[str, Any]:
     4) Return answer + raw source chunks
     """
     try:
-        top_chunks = search_uploaded_notes(
-            question=payload.question,
-            filename=payload.filename,
-            top_k=5,
-        )
+        if payload.mode == "assistant":
+            answer = generate_general_answer(question=payload.question)
+            top_chunks: list[str] = []
+        else:
+            top_chunks = search_uploaded_notes(
+                question=payload.question,
+                filename=payload.filename,
+                top_k=5,
+            )
 
-        answer = generate_answer(
-            question=payload.question,
-            context_chunks=top_chunks,
-        )
+            answer = generate_answer(
+                question=payload.question,
+                context_chunks=top_chunks,
+            )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:

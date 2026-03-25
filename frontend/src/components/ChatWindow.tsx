@@ -29,6 +29,7 @@ const ChatWindow = ({
   uploadedFilename,
 }: ChatWindowProps) => {
   const [input, setInput] = useState("");
+  const [mode, setMode] = useState<"document" | "assistant">("document");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ const ChatWindow = ({
         body: JSON.stringify({
           question: input,
           filename: uploadedFilename,
+          mode,
         }),
       });
 
@@ -99,6 +101,30 @@ const ChatWindow = ({
       <header className="flex items-center gap-2 px-6 py-4 border-b border-primary/5">
         <Sparkles className="h-4 w-4 text-accent" />
         <span className="text-sm font-semibold tracking-tighter text-foreground">Synthesis Session</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMode("document")}
+            className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+              mode === "document"
+                ? "bg-primary/20 border-primary/40 text-primary"
+                : "glass border-border/50 text-muted-foreground"
+            }`}
+          >
+            Document
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("assistant")}
+            className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${
+              mode === "assistant"
+                ? "bg-primary/20 border-primary/40 text-primary"
+                : "glass border-border/50 text-muted-foreground"
+            }`}
+          >
+            Assistant
+          </button>
+        </div>
       </header>
 
       {/* Messages */}
@@ -197,7 +223,11 @@ const ChatWindow = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-            placeholder="Ask a question about your notes..."
+            placeholder={
+              mode === "assistant"
+                ? "Ask anything..."
+                : "Ask a question about your notes..."
+            }
             disabled={loading}
             className="flex-1 rounded-xl glass px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
           />
