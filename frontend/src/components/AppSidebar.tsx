@@ -14,17 +14,20 @@ const memoryHistory = [
 interface AppSidebarProps {
   onNewChat?: () => void;
   uploadedFilename?: string | null;
-  setUploadedFilename?: (filename: string) => void;
+  setUploadedFilename?: (filename: string | null) => void;
 }
 
 const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSidebarProps) => {
-  const [docCount, setDocCount] = useState(getUploadedDocs().length);
+  const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 
   useEffect(() => {
     void hydrateUploadedDocsFromBackend();
 
-    const sync = () => setDocCount(getUploadedDocs().length);
-    const unsubscribe = subscribeUploadedDocs(sync);
+    const unsubscribe = subscribeUploadedDocs(() => {
+      // Keep selected docs in sync with available docs
+      const available = getUploadedDocs();
+      setSelectedDocs((prev) => prev.filter((id) => available.some((doc) => doc.id === id)));
+    });
     return unsubscribe;
   }, []);
 
@@ -55,9 +58,9 @@ const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSid
           </div>
           <div className="flex items-center justify-between px-3 mb-2">
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Selectable Context</p>
-            <span className="text-[10px] text-primary font-medium">{docCount} active</span>
+            <span className="text-[10px] text-primary font-medium">{selectedDocs.length} selected</span>
           </div>
-          <DocSelector compact />
+          <DocSelector compact onSelectionChange={setSelectedDocs} />
 
           <div className="mt-3 px-2">
             {/* Reuse existing upload UI and connect filename to shared Chat page state. */}
