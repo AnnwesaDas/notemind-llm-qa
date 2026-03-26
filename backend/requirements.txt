@@ -7,3 +7,5 @@ pypdf
 numpy
 python-dotenv
 requests
+pytest
+httpx
