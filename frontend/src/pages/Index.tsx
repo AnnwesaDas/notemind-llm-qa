@@ -1,14 +1,16 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Upload, MessageSquare, Sparkles, FileText } from "lucide-react";
 
 const features = [
-  { icon: Upload, title: "Upload", description: "Drag & drop your PDFs, slides, and documents" },
-  { icon: MessageSquare, title: "Ask", description: "Chat with your notes using AI-powered Q&A" },
-  { icon: Sparkles, title: "Understand", description: "Get cited answers linked to exact sources" },
+  { icon: Upload, title: "Upload", description: "Drag & drop your PDFs, slides, and documents", path: "/dashboard" },
+  { icon: MessageSquare, title: "Ask", description: "Chat with your notes using AI-powered Q&A", path: "/chat" },
+  { icon: Sparkles, title: "Understand", description: "Get cited answers linked to exact sources", path: "/dashboard" },
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       {/* Aurora background */}
@@ -88,9 +90,10 @@ const Index = () => {
         {/* Features */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-20 max-w-3xl w-full">
           {features.map((f, i) => (
-            <div
+            <button
               key={f.title}
-              className="animate-fade-up glass glass-hover rounded-2xl p-6 text-center space-y-3"
+              onClick={() => navigate(f.path)}
+              className="animate-fade-up glass glass-hover rounded-2xl p-6 text-center space-y-3 cursor-pointer transition-all hover:scale-105 active:scale-95"
               style={{ animationDelay: `${0.5 + i * 0.1}s` }}
             >
               <div className="mx-auto h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -98,7 +101,7 @@ const Index = () => {
               </div>
               <h3 className="font-serif text-xl text-foreground">{f.title}</h3>
               <p className="text-sm text-muted-foreground">{f.description}</p>
-            </div>
+            </button>
           ))}
         </div>
       </main>
