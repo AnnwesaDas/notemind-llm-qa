@@ -5,7 +5,7 @@ import { Upload, MessageSquare, Sparkles, FileText } from "lucide-react";
 const features = [
   { icon: Upload, title: "Upload", description: "Drag & drop your PDFs, slides, and documents", path: "/dashboard" },
   { icon: MessageSquare, title: "Ask", description: "Chat with your notes using AI-powered Q&A", path: "/chat" },
-  { icon: Sparkles, title: "Understand", description: "Get cited answers linked to exact sources", path: "/dashboard" },
+  { icon: Sparkles, title: "Understand", description: "Get cited answers linked to exact sources", path: "/understand" },
 ];
 
 const Index = () => {

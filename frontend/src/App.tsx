@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
+import Understand from "./pages/Understand";
 import Compare from "./pages/Compare";
 import Flashcards from "./pages/Flashcards";
 import NotFound from "./pages/NotFound";
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/understand" element={<Understand />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/flashcards" element={<Flashcards />} />
           <Route path="*" element={<NotFound />} />
