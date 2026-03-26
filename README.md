@@ -11,7 +11,6 @@ notemind-llm-qa/
 ├── backend/
 │   ├── app.py              # FastAPI app — routes and server setup
 │   ├── ingest.py           # File upload and ingestion logic
-│   ├── retrieval.py        # FAISS retrieval logic (stub for now)
 │   ├── llm.py              # LLM answer generation (Ollama)
 │   ├── embeddings.py       # Sentence transformer embeddings
 │   ├── pdf_loader.py       # PDF text extraction and chunking

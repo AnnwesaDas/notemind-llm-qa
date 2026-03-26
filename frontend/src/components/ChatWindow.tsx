@@ -40,7 +40,7 @@ const ChatWindow = ({
     setMessages([]);
     setInput("");
     setLoading(false);
-  }, [resetSignal]);
+  }, [resetSignal, setLoading, setMessages]);
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return;
