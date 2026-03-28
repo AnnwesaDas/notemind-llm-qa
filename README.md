@@ -296,7 +296,7 @@ First-time setup (installs backend + frontend dependencies, then starts both):
 
 ---
 
-## Current Status
+## 
 
 ### ✅ Working (Day 3 Backend)
 - FastAPI server with CORS enabled
@@ -305,5 +305,24 @@ First-time setup (installs backend + frontend dependencies, then starts both):
 - Query endpoint returns top 5 retrieved chunks
 - Missing index/chunk files handled with API errors
 
-### 🔲 Next Stage
-- Add citations and confidence metadata in responses
+
+
+### ✅ Working (Day 4 Backend)
+- Goal: Generate answers using retrieved document chunks.
+
+## Highlights:
+- Added LLM support using OpenAI GPT-4o / GPT-4o-mini.
+- /api/query endpoint now:
+Converts question → embedding
+Searches FAISS → retrieves top chunks
+Calls generate_answer(question, chunks) → returns concise answer
+Returns JSON with question, answer, and sources
+
+## LLM Prompt Logic:
+- Uses only the provided context
+- Returns “Not found in provided documents” if the answer isn’t in chunks
+- Clear and concise answers
+
+### 🔲 Next Stage  
+- Include citations from the retrieved chunks in the responses
+- Add confidence/score metadata for each source or the answer itself
