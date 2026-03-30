@@ -233,7 +233,7 @@ npm test
 ## Notes
 
 - The frontend is configured to call the backend on http://localhost:8080 -> http://127.0.0.1:8000.
-- In document mode, answers are constrained to retrieved context and may return "Not found in provided documents" when context is insufficient.
+- In document mode, answers are constrained to the retrieved context and may return "Not found in provided documents" when context is insufficient.
 
 ## Production Readiness
 
@@ -242,16 +242,16 @@ Current status: suitable for local development and demos.
 ## Known Limitations
 
 - CORS is currently configured for a single frontend origin (http://localhost:8080).
-- Authentication and authorization are not implemented.
+- Authentication and authorisation are not implemented.
 - File validation is basic (extension-based only).
-- Index artifacts are file-based; no external vector database is used.
+- Index artefacts are file-based; no external vector database is used.
 - No rate limiting or request throttling is configured.
 - Logging, metrics, and tracing are minimal.
-- Error handling is API-friendly, but not yet standardized for observability pipelines.
+- Error handling is API-friendly, but not yet standardised for observability pipelines.
 
 ## Suggested Next Improvements
 
 - Add auth (session/JWT) and per-user document isolation.
 - Move storage/indexing to managed services for scale.
 - Introduce structured logs, metrics, and health checks for deployments.
-- Add CI for backend/frontend tests and linting. (done)
+- Add CI for backend/frontend tests and linting. **(done)**
