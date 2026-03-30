@@ -102,16 +102,18 @@ def query_notes(payload: QueryRequest) -> dict[str, Any]:
         if payload.mode == "assistant":
             answer = generate_general_answer(question=payload.question)
             top_chunks: list[str] = []
-        else:
+       else:
             top_chunks = search_uploaded_notes(
                 question=payload.question,
                 filename=payload.filename,
                 top_k=5,
             )
 
+            chunk_texts = [c["text"] for c in top_chunks]
+
             answer = generate_answer(
                 question=payload.question,
-                context_chunks=top_chunks,
+                context_chunks=chunk_texts,
             )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
