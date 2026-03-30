@@ -190,9 +190,9 @@ def _resolve_query_target(filename: str | None = None) -> tuple[Path, Path]:
     return index_path, chunks_path
 
 
-def search_uploaded_notes(question: str, filename: str | None = None, top_k: int = 5) -> list[str]:
+def search_uploaded_notes(question: str, filename: str | None = None, top_k: int = 5) -> list[dict]:
     """
-    Embed a question, search FAISS, and return the best matching text chunks.
+    Embed a question, search FAISS, and return the best matching text chunks with scores.
     """
     cleaned_question = question.strip()
     if not cleaned_question:
@@ -210,10 +210,18 @@ def search_uploaded_notes(question: str, filename: str | None = None, top_k: int
     question_embedding = embed_chunks([cleaned_question])
     search_result = search_index(index=index, query_embedding=question_embedding, top_k=top_k)
 
-    matched_chunks: list[str] = []
-    for chunk_index in search_result["indices"]:
+    matched_chunks: list[dict] = []
+    indices = search_result["indices"]
+    distances = search_result.get("distances", [[]])[0]
+
+    for i, chunk_index in enumerate(indices[0] if isinstance(indices[0], list) else indices):
         if isinstance(chunk_index, int) and 0 <= chunk_index < len(chunks):
-            matched_chunks.append(chunks[chunk_index])
+            score = float(distances[i]) if i < len(distances) else 0.0
+            matched_chunks.append({
+                "text": chunks[chunk_index],
+                "score": round(score, 4),
+                "chunk_index": chunk_index,
+            })
 
     return matched_chunks
 
