@@ -102,7 +102,7 @@ def query_notes(payload: QueryRequest) -> dict[str, Any]:
         if payload.mode == "assistant":
             answer = generate_general_answer(question=payload.question)
             top_chunks: list[str] = []
-       else:
+        else:
             top_chunks = search_uploaded_notes(
                 question=payload.question,
                 filename=payload.filename,
