@@ -5,12 +5,6 @@ import DocSelector from "./DocSelector";
 import DocUploader from "./DocUploader";
 import { getUploadedDocs, hydrateUploadedDocsFromBackend, subscribeUploadedDocs } from "@/lib/uploadedDocs";
 
-const memoryHistory = [
-  { id: "h1", title: "Quantum Mechanics Review", date: "2 hours ago" },
-  { id: "h2", title: "Biology Exam Prep", date: "Yesterday" },
-  { id: "h3", title: "Calculus Problem Set", date: "3 days ago" },
-];
-
 interface AppSidebarProps {
   onNewChat?: () => void;
   uploadedFilename?: string | null;
@@ -19,11 +13,14 @@ interface AppSidebarProps {
 
 const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSidebarProps) => {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+  const [memoryDocs, setMemoryDocs] = useState(getUploadedDocs());
 
   useEffect(() => {
     void hydrateUploadedDocsFromBackend();
 
     const unsubscribe = subscribeUploadedDocs(() => {
+      setMemoryDocs(getUploadedDocs());
+
       // Keep selected docs in sync with available docs
       const available = getUploadedDocs();
       setSelectedDocs((prev) => prev.filter((id) => available.some((doc) => doc.id === id)));
@@ -80,7 +77,11 @@ const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSid
           </div>
 
           <div className="space-y-1 px-1">
-            {memoryHistory.map((item) => (
+            {memoryDocs.length === 0 && (
+              <p className="px-3 py-2 text-xs text-muted-foreground">No memory entries yet.</p>
+            )}
+
+            {memoryDocs.map((item) => (
               <button
                 key={item.id}
                 className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-secondary/45 transition-colors text-left"
@@ -88,8 +89,10 @@ const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSid
               >
                 <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-foreground truncate">{item.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{item.date}</p>
+                  <p className="text-xs text-foreground truncate">{item.filename}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date(item.uploadedAtIso).toLocaleString()}
+                  </p>
                 </div>
               </button>
             ))}

@@ -229,6 +229,7 @@ def search_uploaded_notes(question: str, filename: str | None = None, top_k: int
 def list_indexed_documents() -> list[dict[str, Any]]:
     """Return indexed documents available under data/indexes."""
     INDEXES_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
     documents: list[dict[str, Any]] = []
     candidates = sorted(
@@ -239,6 +240,10 @@ def list_indexed_documents() -> list[dict[str, Any]]:
 
     for index_path in candidates:
         filename = index_path.name.removesuffix(".index")
+        # Only list entries that correspond to a file the user actually uploaded.
+        if not (UPLOADS_DIR / filename).exists():
+            continue
+
         chunk_store_path = _get_chunk_store_path(filename)
 
         num_chunks = 0

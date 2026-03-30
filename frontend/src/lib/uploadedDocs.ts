@@ -96,30 +96,18 @@ export async function hydrateUploadedDocsFromBackend(): Promise<void> {
         ? (data.documents as BackendUploadedDoc[])
         : [];
 
-      if (docs.length === 0) {
-        return;
-      }
+      const next = docs.map((backendDoc) => ({
+        id: backendDoc.filename,
+        filename: backendDoc.filename,
+        uploadedAtIso: backendDoc.uploaded_at_iso || new Date().toISOString(),
+        numChunks: typeof backendDoc.num_chunks === "number" ? backendDoc.num_chunks : undefined,
+      }));
 
-      const existing = readStorage();
-      const byId = new Map(existing.map((doc) => [doc.id, doc]));
-
-      for (const backendDoc of docs) {
-        const id = backendDoc.filename;
-        const current = byId.get(id);
-
-        byId.set(id, {
-          id,
-          filename: backendDoc.filename,
-          uploadedAtIso: backendDoc.uploaded_at_iso || current?.uploadedAtIso || new Date().toISOString(),
-          numChunks: typeof backendDoc.num_chunks === "number" ? backendDoc.num_chunks : current?.numChunks,
-        });
-      }
-
-      const merged = Array.from(byId.values()).sort((left, right) =>
+      const sorted = next.sort((left, right) =>
         right.uploadedAtIso.localeCompare(left.uploadedAtIso)
       );
 
-      writeStorage(merged);
+      writeStorage(sorted);
     } catch {
       return;
     }
