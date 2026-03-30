@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import backend.app as app_module
+import backend.compare as compare_module
 
 
 client = TestClient(app_module.app)
@@ -115,3 +116,126 @@ def test_upload_returns_ingestion_summary(monkeypatch) -> None:
     payload = response.json()
     assert payload["filename"] == "test.pdf"
     assert payload["num_chunks"] == 3
+
+
+def test_compare_mode_between_two_docs(monkeypatch) -> None:
+    def fake_search(question: str, filename: str | None = None, top_k: int = 5) -> list[dict]:
+        if filename == "docA.pdf":
+            return [
+                {"text": "Doc A explains recursion with base and recursive cases.", "score": 0.12, "chunk_index": 2}
+            ]
+        return [
+            {"text": "Doc B explains recursion via stack unwinding examples.", "score": 0.22, "chunk_index": 4}
+        ]
+
+    monkeypatch.setattr(compare_module, "search_uploaded_notes", fake_search)
+    monkeypatch.setattr(compare_module, "generate_answer", lambda question, context_chunks: "compare summary")
+
+    response = client.post(
+        "/api/compare",
+        json={
+            "query": "How do these explain recursion differently?",
+            "document_ids": ["docA.pdf", "docB.pdf"],
+            "mode": "compare",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "compare"
+    assert payload["answer"] == "compare summary"
+    assert len(payload["comparison"]["differences"]) == 1
+    assert payload["comparison"]["differences"][0]["doc_a"]["document_id"] == "docA.pdf"
+    assert payload["comparison"]["differences"][0]["doc_b"]["document_id"] == "docB.pdf"
+
+
+def test_gaps_mode_between_two_docs(monkeypatch) -> None:
+    def fake_search(question: str, filename: str | None = None, top_k: int = 5) -> list[dict]:
+        if filename == "week3.pdf":
+            return [
+                {"text": "Week 3 covers loops and arrays.", "score": 0.31, "chunk_index": 1},
+            ]
+        return [
+            {"text": "Week 5 introduces dynamic programming and memoization.", "score": 0.18, "chunk_index": 6},
+            {"text": "Tabulation and state transitions are detailed.", "score": 0.21, "chunk_index": 7},
+        ]
+
+    monkeypatch.setattr(compare_module, "search_uploaded_notes", fake_search)
+    monkeypatch.setattr(compare_module, "generate_answer", lambda question, context_chunks: "gap summary")
+
+    response = client.post(
+        "/api/compare",
+        json={
+            "query": "What did week 3 notes miss compared to week 5?",
+            "document_ids": ["week3.pdf", "week5.pdf"],
+            "mode": "gaps",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "gaps"
+    assert payload["answer"] == "gap summary"
+    assert len(payload["comparison"]["gaps"]) >= 1
+    assert payload["comparison"]["gaps"][0]["present_in_document_id"] in {"week3.pdf", "week5.pdf"}
+
+
+def test_rank_mode_multiple_docs(monkeypatch) -> None:
+    def fake_search(question: str, filename: str | None = None, top_k: int = 5) -> list[dict]:
+        if filename == "a.pdf":
+            return [{"text": "dynamic programming recursion memoization", "score": 0.1, "chunk_index": 0}]
+        if filename == "b.pdf":
+            return [{"text": "dynamic programming", "score": 0.3, "chunk_index": 1}]
+        return [{"text": "sorting and arrays only", "score": 0.7, "chunk_index": 2}]
+
+    monkeypatch.setattr(compare_module, "search_uploaded_notes", fake_search)
+    monkeypatch.setattr(compare_module, "generate_answer", lambda question, context_chunks: "rank summary")
+
+    response = client.post(
+        "/api/compare",
+        json={
+            "query": "Which document covers dynamic programming best?",
+            "document_ids": ["a.pdf", "b.pdf", "c.pdf"],
+            "mode": "rank",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "rank"
+    assert payload["answer"] == "rank summary"
+    assert len(payload["comparison"]["ranking"]) == 3
+    ranking = payload["comparison"]["ranking"]
+    assert ranking[0]["score"] >= ranking[1]["score"] >= ranking[2]["score"]
+
+
+def test_compare_invalid_input_handling() -> None:
+    response_empty_query = client.post(
+        "/api/compare",
+        json={
+            "query": "",
+            "document_ids": ["docA.pdf", "docB.pdf"],
+            "mode": "compare",
+        },
+    )
+    assert response_empty_query.status_code == 400
+
+    response_missing_docs = client.post(
+        "/api/compare",
+        json={
+            "query": "compare recursion",
+            "document_ids": [],
+            "mode": "compare",
+        },
+    )
+    assert response_missing_docs.status_code == 400
+
+    response_bad_count = client.post(
+        "/api/compare",
+        json={
+            "query": "compare recursion",
+            "document_ids": ["only-one.pdf"],
+            "mode": "compare",
+        },
+    )
+    assert response_bad_count.status_code == 400

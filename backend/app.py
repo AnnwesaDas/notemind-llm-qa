@@ -15,6 +15,7 @@ try:
         search_uploaded_notes,
     )
     from backend.llm import generate_answer, generate_general_answer
+    from backend.compare import build_compare_response
 except ModuleNotFoundError:
     # Local import path (e.g., python backend/app.py or uvicorn app:app from backend).
     from ingest import (
@@ -24,6 +25,7 @@ except ModuleNotFoundError:
         search_uploaded_notes,
     )
     from llm import generate_answer, generate_general_answer
+    from compare import build_compare_response
 
 
 # Create the FastAPI application instance.
@@ -46,6 +48,14 @@ class QueryRequest(BaseModel):
     question: str
     filename: str | None = None
     mode: Literal["document", "assistant"] = "document"
+
+
+class CompareRequest(BaseModel):
+    """Request body for the /api/compare endpoint."""
+
+    query: str
+    document_ids: list[str]
+    mode: Literal["compare", "gaps", "rank"] | None = None
 
 
 @app.get("/")
@@ -127,3 +137,20 @@ def query_notes(payload: QueryRequest) -> dict[str, Any]:
         "answer": answer,
         "sources": top_chunks,
     }
+
+
+@app.post("/api/compare")
+def compare_documents(payload: CompareRequest) -> dict[str, Any]:
+    """Compare, gap-detect, or rank selected documents for a user query."""
+    try:
+        return build_compare_response(
+            query=payload.query,
+            document_ids=payload.document_ids,
+            requested_mode=payload.mode,
+        )
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
