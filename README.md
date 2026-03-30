@@ -3,7 +3,8 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111111)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Quickly](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![CI](https://github.com/AnnwesaDas/notemind-llm-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/AnnwesaDas/notemind-llm-qa/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 NoteMind is a full-stack study assistant built with Retrieval-Augmented Generation (RAG).
@@ -253,4 +254,4 @@ Current status: suitable for local development and demos.
 - Add auth (session/JWT) and per-user document isolation.
 - Move storage/indexing to managed services for scale.
 - Introduce structured logs, metrics, and health checks for deployments.
-- Add CI for backend/frontend tests and linting.
+- Add CI for backend/frontend tests and linting. (done)
