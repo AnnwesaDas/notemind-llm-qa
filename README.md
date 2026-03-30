@@ -3,7 +3,8 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111111)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Quickly](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![CI](https://github.com/AnnwesaDas/notemind-llm-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/AnnwesaDas/notemind-llm-qa/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 NoteMind is a full-stack study assistant built with Retrieval-Augmented Generation (RAG).
@@ -232,7 +233,7 @@ npm test
 ## Notes
 
 - The frontend is configured to call the backend on http://localhost:8080 -> http://127.0.0.1:8000.
-- In document mode, answers are constrained to retrieved context and may return "Not found in provided documents" when context is insufficient.
+- In document mode, answers are constrained to the retrieved context and may return "Not found in provided documents" when context is insufficient.
 
 ## Production Readiness
 
@@ -241,16 +242,16 @@ Current status: suitable for local development and demos.
 ## Known Limitations
 
 - CORS is currently configured for a single frontend origin (http://localhost:8080).
-- Authentication and authorization are not implemented.
+- Authentication and authorisation are not implemented.
 - File validation is basic (extension-based only).
-- Index artifacts are file-based; no external vector database is used.
+- Index artefacts are file-based; no external vector database is used.
 - No rate limiting or request throttling is configured.
 - Logging, metrics, and tracing are minimal.
-- Error handling is API-friendly, but not yet standardized for observability pipelines.
+- Error handling is API-friendly, but not yet standardised for observability pipelines.
 
 ## Suggested Next Improvements
 
 - Add auth (session/JWT) and per-user document isolation.
 - Move storage/indexing to managed services for scale.
 - Introduce structured logs, metrics, and health checks for deployments.
-- Add CI for backend/frontend tests and linting.
+- Add CI for backend/frontend tests and linting. **(done)**
