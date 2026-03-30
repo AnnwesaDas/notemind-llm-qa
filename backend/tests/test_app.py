@@ -37,9 +37,12 @@ def test_query_assistant_mode_returns_answer(monkeypatch) -> None:
 def test_query_document_mode_uses_retrieval(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
-    def fake_search_uploaded_notes(question: str, filename: str | None = None, top_k: int = 5) -> list[str]:
+    def fake_search_uploaded_notes(question: str, filename: str | None = None, top_k: int = 5) -> list[dict]:
         captured["search"] = {"question": question, "filename": filename, "top_k": top_k}
-        return ["chunk one", "chunk two"]
+        return [
+            {"text": "chunk one", "score": 0.9, "chunk_index": 0},
+            {"text": "chunk two", "score": 0.8, "chunk_index": 1},
+        ]
 
     def fake_generate_answer(question: str, context_chunks: list[str]) -> str:
         captured["generate"] = {"question": question, "chunks": context_chunks}
@@ -60,7 +63,10 @@ def test_query_document_mode_uses_retrieval(monkeypatch) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["answer"] == "synthesized answer"
-    assert payload["sources"] == ["chunk one", "chunk two"]
+    assert payload["sources"] == [
+        {"text": "chunk one", "score": 0.9, "chunk_index": 0},
+        {"text": "chunk two", "score": 0.8, "chunk_index": 1},
+    ]
     assert captured["search"] == {
         "question": "What is chapter one about?",
         "filename": "notes.pdf",
