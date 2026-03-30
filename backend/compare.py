@@ -79,6 +79,8 @@ class DocumentSignals:
 
 
 MIN_DOC_RELEVANCE = 0.25
+MIN_DOC_BEST_RELEVANCE = 0.24
+MIN_DOC_AVG_RELEVANCE = 0.20
 MIN_QUERY_COVERAGE = 0.10
 MIN_OVERLAP_SCORE_COMPARE = 0.30
 MIN_OVERLAP_SCORE_GAPS = 0.22
@@ -177,6 +179,17 @@ def _document_score(query: str, chunks: list[dict[str, Any]]) -> tuple[float, st
     return score, reason
 
 
+def _doc_relevance_stats(chunks: list[dict[str, Any]]) -> dict[str, float]:
+    if not chunks:
+        return {"best": 0.0, "average": 0.0}
+
+    relevances = [1.0 / (1.0 + max(float(chunk.get("score", 1.0)), 0.0)) for chunk in chunks]
+    return {
+        "best": round(max(relevances), 4),
+        "average": round(sum(relevances) / len(relevances), 4),
+    }
+
+
 def _safe_text(value: Any) -> str:
     return str(value or "").strip()
 
@@ -235,6 +248,8 @@ def _pair_overlap_reason(
 ) -> dict[str, Any]:
     left = _build_document_signals(query=query, doc=left_doc)
     right = _build_document_signals(query=query, doc=right_doc)
+    left_relevance_stats = _doc_relevance_stats(left_doc.chunks)
+    right_relevance_stats = _doc_relevance_stats(right_doc.chunks)
 
     shared_concepts = sorted(left.concepts & right.concepts)
     concept_overlap = len(shared_concepts) / max(min(len(left.concepts), len(right.concepts)), 1)
@@ -254,6 +269,10 @@ def _pair_overlap_reason(
     is_supported = (
         left.relevance >= MIN_DOC_RELEVANCE
         and right.relevance >= MIN_DOC_RELEVANCE
+        and left_relevance_stats["best"] >= MIN_DOC_BEST_RELEVANCE
+        and right_relevance_stats["best"] >= MIN_DOC_BEST_RELEVANCE
+        and left_relevance_stats["average"] >= MIN_DOC_AVG_RELEVANCE
+        and right_relevance_stats["average"] >= MIN_DOC_AVG_RELEVANCE
         and left.query_coverage >= MIN_QUERY_COVERAGE
         and right.query_coverage >= MIN_QUERY_COVERAGE
         and len(shared_concepts) >= shared_limit
@@ -277,6 +296,10 @@ def _pair_overlap_reason(
                 "query_coverage": right.query_coverage,
             },
         ],
+        "relevance_scores": {
+            left.document_id: left_relevance_stats,
+            right.document_id: right_relevance_stats,
+        },
         "shared_concepts": shared_concepts[:15],
         "semantic_similarity": semantic_similarity,
         "overlap_score": overlap_score,
@@ -594,8 +617,13 @@ def build_compare_response(
                 "answer": answer,
                 "reason": {
                     "doc_relevance": reason["doc_relevance"],
+                    "relevance_scores": reason.get("relevance_scores", {}),
                     "shared_concepts": reason["shared_concepts"],
                     "semantic_similarity": reason["semantic_similarity"],
+                    "overlap_score": reason["overlap_score"],
+                },
+                "debug": {
+                    "relevance_scores": reason.get("relevance_scores", {}),
                     "overlap_score": reason["overlap_score"],
                 },
                 "supported_comparison_points": [],
@@ -640,10 +668,15 @@ def build_compare_response(
                         "reason": "unsupported_generic_phrase_in_generation",
                     }
                 )
-                answer = _deterministic_compare_answer(verified_differences)
+                status = "insufficient_evidence"
+                intermediate["abstain"] = True
+                intermediate["abstain_reason"] = "banned_phrase_without_evidence"
+                answer = "I could not find enough shared evidence to compare these documents reliably for this question."
+                supported_comparison_points = []
+                differences = []
 
         if mode == "compare":
-            differences = verified_differences
+            differences = verified_differences if status == "ok" else []
 
         if mode == "gaps":
             signal_map = {
@@ -731,8 +764,13 @@ def build_compare_response(
         "answer": answer,
         "reason": {
             "doc_relevance": reason.get("doc_relevance", []),
+            "relevance_scores": reason.get("relevance_scores", {}),
             "shared_concepts": reason.get("shared_concepts", []),
             "semantic_similarity": reason.get("semantic_similarity", 0.0),
+            "overlap_score": reason.get("overlap_score", 0.0),
+        },
+        "debug": {
+            "relevance_scores": reason.get("relevance_scores", {}),
             "overlap_score": reason.get("overlap_score", 0.0),
         },
         "supported_comparison_points": supported_comparison_points,

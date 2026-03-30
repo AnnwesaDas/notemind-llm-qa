@@ -180,6 +180,9 @@ def test_compare_mode_returns_insufficient_overlap_for_unrelated_docs(monkeypatc
     assert "do not appear to discuss the same topic" in payload["answer"]
     assert payload["comparison"]["differences"] == []
     assert "doc_a" in payload["evidence"] and "doc_b" in payload["evidence"]
+    assert "debug" in payload
+    assert "relevance_scores" in payload["debug"]
+    assert isinstance(payload["debug"].get("overlap_score"), float)
 
 
 def test_compare_mode_partial_overlap_returns_uncertain_result(monkeypatch) -> None:
@@ -351,8 +354,9 @@ def test_compare_filters_unsupported_generic_phrase_from_generation(monkeypatch)
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "ok"
-    assert "theoretical foundation" not in payload["answer"].lower()
+    assert payload["status"] == "insufficient_evidence"
+    assert "enough shared evidence" in payload["answer"].lower()
+    assert payload["comparison"]["differences"] == []
     assert any(item["reason"] == "unsupported_generic_phrase_in_generation" for item in payload["rejected_claims"])
 
 
