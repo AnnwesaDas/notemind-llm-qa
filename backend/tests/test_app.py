@@ -144,10 +144,11 @@ def test_compare_mode_between_two_related_docs(monkeypatch) -> None:
     payload = response.json()
     assert payload["mode"] == "compare"
     assert payload["status"] == "ok"
-    assert payload["answer"] == "compare summary"
+    assert payload["answer"] in {"compare summary", payload["comparison"]["differences"][0]["claim"] if payload["comparison"]["differences"] else ""}
     assert len(payload["comparison"]["differences"]) == 1
     assert payload["comparison"]["differences"][0]["doc_a"]["document_id"] == "docA.pdf"
     assert payload["comparison"]["differences"][0]["doc_b"]["document_id"] == "docB.pdf"
+    assert payload["supported_comparison_points"]
 
 
 def test_compare_mode_returns_insufficient_overlap_for_unrelated_docs(monkeypatch) -> None:
@@ -258,7 +259,7 @@ def test_rank_mode_multiple_docs_low_confidence_when_irrelevant(monkeypatch) -> 
     assert response.status_code == 200
     payload = response.json()
     assert payload["mode"] == "rank"
-    assert payload["status"] == "low_confidence"
+    assert payload["status"] == "insufficient_evidence"
     assert "No strong winner" in payload["answer"]
     assert len(payload["comparison"]["ranking"]) == 3
     ranking = payload["comparison"]["ranking"]
@@ -308,10 +309,51 @@ def test_gaps_mode_related_docs_returns_grounded_gap(monkeypatch) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["mode"] == "gaps"
-    assert payload["status"] in {"ok", "low_confidence"}
+    assert payload["status"] in {"ok", "insufficient_evidence"}
     if payload["status"] == "ok":
         assert len(payload["comparison"]["gaps"]) >= 1
         assert payload["answer"] == "gap summary"
+
+
+def test_compare_filters_unsupported_generic_phrase_from_generation(monkeypatch) -> None:
+    def fake_search(question: str, filename: str | None = None, top_k: int = 5) -> list[dict]:
+        if filename == "docA.pdf":
+            return [
+                {
+                    "text": "Recursion uses a base case and recursive case; stack frames unwind after termination.",
+                    "score": 0.08,
+                    "chunk_index": 1,
+                }
+            ]
+        return [
+            {
+                "text": "Recursion requires a base case, recursive case, and clear termination to avoid infinite calls.",
+                "score": 0.09,
+                "chunk_index": 2,
+            }
+        ]
+
+    monkeypatch.setattr(compare_module, "search_uploaded_notes", fake_search)
+    monkeypatch.setattr(
+        compare_module,
+        "generate_answer",
+        lambda question, context_chunks: "Document A builds a theoretical foundation while Document B uses real-world examples.",
+    )
+
+    response = client.post(
+        "/api/compare",
+        json={
+            "query": "How do these explain recursion?",
+            "document_ids": ["docA.pdf", "docB.pdf"],
+            "mode": "compare",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert "theoretical foundation" not in payload["answer"].lower()
+    assert any(item["reason"] == "unsupported_generic_phrase_in_generation" for item in payload["rejected_claims"])
 
 
 def test_compare_invalid_input_handling() -> None:

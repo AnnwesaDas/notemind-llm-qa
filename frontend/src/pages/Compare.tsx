@@ -2,13 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, ArrowLeft, ChevronDown } from "lucide-react";
-import { getUploadedDocs, subscribeUploadedDocs } from "@/lib/uploadedDocs";
+import { getUploadedDocs, hydrateUploadedDocsFromBackend, subscribeUploadedDocs } from "@/lib/uploadedDocs";
 
-interface CompareResult {
-  docAEvidence: string[];
-  docBEvidence: string[];
-  synthesis: string;
-  question: string;
+interface Citation {
+  document_id?: string;
+  document_name?: string;
+  chunk_index?: number;
+  score?: number;
+  text?: string;
+}
+
+interface DifferencePoint {
+  claim?: string;
+  doc_a?: { citations?: Citation[]; claim?: string };
+  doc_b?: { citations?: Citation[]; claim?: string };
+}
+
+interface CompareApiResponse {
+  status: "ok" | "insufficient_overlap" | "insufficient_evidence";
+  query: string;
+  answer: string;
+  evidence?: Record<string, Citation[]> & { doc_a?: Citation[]; doc_b?: Citation[] };
+  comparison?: {
+    differences?: DifferencePoint[];
+  };
+  rejected_claims?: Array<{ claim: string; reason: string }>;
 }
 
 const FALLBACK_DOCS = [
@@ -18,65 +36,18 @@ const FALLBACK_DOCS = [
   "MATH_Notes.pdf",
 ];
 
-function getMockResult(question: string): CompareResult {
-  const normalized = question.toLowerCase();
-
-  if (normalized.includes("explain") || normalized.includes("define")) {
-    return {
-      docAEvidence: [
-        "TCP establishes a connection using a three-way handshake before any data is transmitted, ensuring both parties are ready.",
-        "Packet acknowledgment in TCP means every segment sent must be confirmed received - dropped packets are retransmitted automatically.",
-      ],
-      docBEvidence: [
-        "UDP sends datagrams without establishing a connection first, making it significantly faster for time-sensitive applications.",
-        "In UDP, there is no guarantee of delivery or ordering - the application layer must handle any error correction if needed.",
-      ],
-      synthesis:
-        "Both documents agree that TCP and UDP serve fundamentally different purposes. CS101 emphasizes TCP's reliability mechanisms (handshake, acknowledgment, retransmission) as essential for data integrity. BIO Week 4 contrasts this by highlighting UDP's stateless speed - ideal where losing a packet is acceptable. The key insight across both: choose your protocol based on whether correctness or speed is the priority.",
-      question,
-    };
-  }
-
-  if (normalized.includes("process") || normalized.includes("stage") || normalized.includes("step")) {
-    return {
-      docAEvidence: [
-        "Glycolysis occurs in the cytoplasm and breaks glucose into two pyruvate molecules, yielding a net gain of 2 ATP.",
-        "The Krebs cycle runs in the mitochondrial matrix, producing NADH and FADH2 as electron carriers for the next stage.",
-      ],
-      docBEvidence: [
-        "Oxidative phosphorylation in the inner mitochondrial membrane uses the electron transport chain to generate up to 34 ATP.",
-        "The entire cellular respiration process converts one glucose molecule into approximately 36-38 ATP molecules total.",
-      ],
-      synthesis:
-        "Both sources frame cellular respiration as a three-stage cascade. The first doc details the early anaerobic stage (glycolysis) while the second focuses on the high-yield aerobic stages. Together they show that the majority of ATP - roughly 90% - is produced in the final oxidative phosphorylation stage, making mitochondrial function critical to cellular energy.",
-      question,
-    };
-  }
-
-  return {
-    docAEvidence: [
-      "The foundational concepts outlined here establish a framework for understanding the broader theoretical model.",
-      "Key terminology is defined early and consistently applied throughout subsequent sections of the document.",
-    ],
-    docBEvidence: [
-      "This source approaches the same topic from an applied perspective, using case studies and real-world examples.",
-      "The methodology differs significantly - favoring empirical observation over theoretical derivation.",
-    ],
-    synthesis:
-      "These two documents approach the subject from complementary angles. The first builds a theoretical foundation while the second validates concepts through practical application. Students would benefit from reading both in sequence - theory first, then application.",
-    question,
-  };
-}
-
 const Compare = () => {
   const [availableDocs, setAvailableDocs] = useState<string[]>([]);
   const [docA, setDocA] = useState<string | null>(null);
   const [docB, setDocB] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<CompareResult | null>(null);
+  const [result, setResult] = useState<CompareApiResponse | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   useEffect(() => {
+    void hydrateUploadedDocsFromBackend();
+
     const sync = () => {
       const uploaded = getUploadedDocs().map((doc) => doc.filename);
       const unique = Array.from(new Set(uploaded));
@@ -107,21 +78,67 @@ const Compare = () => {
     !sameDocError &&
     !isLoading;
 
-  const headerA = result ? docA : docA;
-  const headerB = result ? docB : docB;
+  const headerA = docA;
+  const headerB = docB;
 
-  const runCompare = () => {
+  const extractEvidenceTexts = (response: CompareApiResponse | null, docId: string | null, side: "a" | "b") => {
+    if (!response || !docId) {
+      return [];
+    }
+
+    const evidence = response.evidence || {};
+    const direct = side === "a" ? evidence.doc_a : evidence.doc_b;
+    const byId = evidence[docId] || [];
+
+    const fromDifferences = (response.comparison?.differences || []).flatMap((diff) => {
+      const citations = side === "a" ? diff.doc_a?.citations : diff.doc_b?.citations;
+      return (citations || []).map((c) => c.text || "").filter(Boolean);
+    });
+
+    const merged = [
+      ...direct.map((c) => c.text || ""),
+      ...byId.map((c) => c.text || ""),
+      ...fromDifferences,
+    ].filter(Boolean);
+
+    return Array.from(new Set(merged)).slice(0, 4);
+  };
+
+  const docAEvidence = extractEvidenceTexts(result, docA, "a");
+  const docBEvidence = extractEvidenceTexts(result, docB, "b");
+
+  const runCompare = async () => {
     if (!canCompare) {
       return;
     }
 
     setIsLoading(true);
     setResult(null);
+    setRequestError(null);
 
-    window.setTimeout(() => {
-      setResult(getMockResult(question.trim()));
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: question.trim(),
+          document_ids: [docA, docB],
+          mode: "compare",
+        }),
+      });
+
+      if (!response.ok) {
+        const detailText = await response.text();
+        throw new Error(detailText || "Compare request failed");
+      }
+
+      const data = (await response.json()) as CompareApiResponse;
+      setResult(data);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to compare documents right now.");
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const helperText = useMemo(() => {
@@ -247,6 +264,12 @@ const Compare = () => {
           </div>
         </section>
 
+        {requestError && (
+          <section className="glass rounded-2xl p-4 border border-red-400/40 bg-red-500/10">
+            <p className="text-sm text-red-300">{requestError}</p>
+          </section>
+        )}
+
         {isLoading && (
           <section className="glass rounded-2xl p-6">
             <p className="text-center text-sm text-muted-foreground mb-5">Synthesizing across documents...</p>
@@ -285,7 +308,7 @@ const Compare = () => {
               <h3 className="text-sm font-medium uppercase tracking-wider text-cyan-300">
                 {headerA ?? "Document A"}
               </h3>
-              {result.docAEvidence.map((quote, idx) => (
+              {docAEvidence.map((quote, idx) => (
                 <article key={`a-evidence-${idx}`} className="glass rounded-xl p-4 border-l-2 border-l-cyan-400/90">
                   <p className="text-sm leading-relaxed text-foreground">{quote}</p>
                   <p className="mt-3 text-[10px] uppercase tracking-wider text-cyan-300/90">
@@ -293,6 +316,11 @@ const Compare = () => {
                   </p>
                 </article>
               ))}
+              {docAEvidence.length === 0 && (
+                <article className="glass rounded-xl p-4 border-l-2 border-l-cyan-400/90">
+                  <p className="text-sm leading-relaxed text-muted-foreground">No strong evidence returned for this document.</p>
+                </article>
+              )}
             </div>
 
             <div
@@ -302,9 +330,24 @@ const Compare = () => {
               <h3 className="text-sm font-medium uppercase tracking-wider text-primary text-center">⚡ Synthesis</h3>
               <article className="rounded-2xl p-5 border border-primary/40 bg-primary/10 shadow-[0_0_28px_rgba(124,58,237,0.18)]">
                 <span className="inline-flex rounded-full border border-primary/40 bg-primary/20 px-2.5 py-1 text-[10px] uppercase tracking-wider text-primary font-medium">
-                  AI Analysis
+                  {result.status === "ok" ? "AI Analysis" : "Cautious Analysis"}
                 </span>
-                <p className="mt-4 font-serif text-base leading-8 text-foreground/95">{result.synthesis}</p>
+                <p className="mt-4 font-serif text-base leading-8 text-foreground/95">{result.answer}</p>
+                {result.status !== "ok" && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Comparison is intentionally withheld because shared evidence is weak or insufficient.
+                  </p>
+                )}
+                {result.rejected_claims && result.rejected_claims.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">Rejected claims</p>
+                    {result.rejected_claims.slice(0, 2).map((item, idx) => (
+                      <p key={`rejected-${idx}`} className="text-xs text-muted-foreground">
+                        {item.reason}: {item.claim}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </article>
             </div>
 
@@ -312,7 +355,7 @@ const Compare = () => {
               <h3 className="text-sm font-medium uppercase tracking-wider text-violet-300">
                 {headerB ?? "Document B"}
               </h3>
-              {result.docBEvidence.map((quote, idx) => (
+              {docBEvidence.map((quote, idx) => (
                 <article key={`b-evidence-${idx}`} className="glass rounded-xl p-4 border-l-2 border-l-violet-400/90">
                   <p className="text-sm leading-relaxed text-foreground">{quote}</p>
                   <p className="mt-3 text-[10px] uppercase tracking-wider text-violet-300/90">
@@ -320,6 +363,11 @@ const Compare = () => {
                   </p>
                 </article>
               ))}
+              {docBEvidence.length === 0 && (
+                <article className="glass rounded-xl p-4 border-l-2 border-l-violet-400/90">
+                  <p className="text-sm leading-relaxed text-muted-foreground">No strong evidence returned for this document.</p>
+                </article>
+              )}
             </div>
           </section>
         )}

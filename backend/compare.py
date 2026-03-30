@@ -17,6 +17,7 @@ except ModuleNotFoundError:
 
 
 CompareMode = Literal["compare", "gaps", "rank"]
+CompareStatus = Literal["ok", "insufficient_overlap", "insufficient_evidence"]
 
 
 STOPWORDS = {
@@ -49,6 +50,16 @@ STOPWORDS = {
     "your",
 }
 
+GENERIC_COMPARE_PHRASES = {
+    "theoretical foundation",
+    "practical application",
+    "complementary angles",
+    "real-world examples",
+    "methodology differs significantly",
+    "empirical observation",
+    "broader framework",
+}
+
 
 @dataclass
 class RetrievedDocument:
@@ -76,6 +87,7 @@ MIN_SHARED_CONCEPTS_GAPS = 1
 MIN_SEMANTIC_COMPARE = 0.20
 MIN_SEMANTIC_GAPS = 0.10
 MIN_RANK_CONFIDENCE = 0.30
+MIN_CLAIM_SUPPORT_CONFIDENCE = 0.30
 
 
 def infer_mode(query: str, requested_mode: CompareMode | None = None) -> CompareMode:
@@ -271,6 +283,189 @@ def _pair_overlap_reason(
     }
 
 
+def _split_sentences(text: str) -> list[str]:
+    if not text:
+        return []
+    raw = re.split(r"(?<=[.!?])\s+", text)
+    return [sentence.strip() for sentence in raw if sentence.strip()]
+
+
+def _extract_supported_points(query: str, doc: RetrievedDocument, max_points: int = 4) -> list[dict[str, Any]]:
+    query_tokens = _tokenize(query)
+    points: list[dict[str, Any]] = []
+
+    for chunk in doc.chunks:
+        chunk_text = _safe_text(chunk.get("text"))
+        if not chunk_text:
+            continue
+        for sentence in _split_sentences(chunk_text):
+            sentence_tokens = _tokenize(sentence)
+            overlap = len(sentence_tokens & query_tokens)
+            if overlap == 0:
+                continue
+
+            points.append(
+                {
+                    "point": sentence,
+                    "citations": [
+                        {
+                            "document_id": doc.id,
+                            "document_name": doc.name,
+                            "chunk_index": chunk.get("chunk_index"),
+                            "score": chunk.get("score"),
+                            "text": chunk_text,
+                        }
+                    ],
+                    "support_overlap": overlap / max(len(query_tokens), 1),
+                }
+            )
+
+    # Keep the highest-overlap unique points first.
+    dedup: dict[str, dict[str, Any]] = {}
+    for item in sorted(points, key=lambda x: float(x["support_overlap"]), reverse=True):
+        dedup.setdefault(item["point"], item)
+
+    return list(dedup.values())[:max_points]
+
+
+def _build_intermediate_structure(query: str, docs: list[RetrievedDocument]) -> dict[str, Any]:
+    doc_summaries = []
+    concept_sets: list[set[str]] = []
+
+    for doc in docs:
+        supported_points = _extract_supported_points(query=query, doc=doc, max_points=4)
+        summary_text = " ".join(item["point"] for item in supported_points)
+        concepts = _tokenize(summary_text)
+        concept_sets.append(concepts)
+        doc_summaries.append(
+            {
+                "document_id": doc.id,
+                "document_name": doc.name,
+                "supported_points": supported_points,
+            }
+        )
+
+    shared_topics: list[str] = []
+    if concept_sets:
+        shared = set(concept_sets[0])
+        for concept_set in concept_sets[1:]:
+            shared &= concept_set
+        shared_topics = sorted(shared)
+
+    return {
+        "query": query,
+        "doc_summaries": doc_summaries,
+        "shared_topics": shared_topics,
+        "differences": [],
+        "abstain": False,
+        "abstain_reason": "",
+    }
+
+
+def _contains_unsupported_generic_phrase(text: str, evidence_text: str) -> bool:
+    normalized_text = text.lower()
+    normalized_evidence = evidence_text.lower()
+    for phrase in GENERIC_COMPARE_PHRASES:
+        if phrase in normalized_text and phrase not in normalized_evidence:
+            return True
+    return False
+
+
+def _claim_confidence(
+    claim: str,
+    support_a: list[dict[str, Any]],
+    support_b: list[dict[str, Any]],
+    overlap_score: float,
+) -> float:
+    claim_tokens = _tokenize(claim)
+    text_a = " ".join(_safe_text(item.get("text")) for item in support_a)
+    text_b = " ".join(_safe_text(item.get("text")) for item in support_b)
+    evidence_tokens = _tokenize(text_a + " " + text_b)
+    lexical_support = len(claim_tokens & evidence_tokens) / max(len(claim_tokens), 1)
+
+    confidence = 0.6 * lexical_support + 0.4 * overlap_score
+    return round(max(0.0, min(confidence, 1.0)), 4)
+
+
+def _build_verified_differences(
+    query: str,
+    doc_a: RetrievedDocument,
+    doc_b: RetrievedDocument,
+    intermediate: dict[str, Any],
+    overlap_score: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    rejected_claims: list[dict[str, Any]] = []
+
+    a_summary = intermediate["doc_summaries"][0]
+    b_summary = intermediate["doc_summaries"][1]
+    points_a = a_summary["supported_points"]
+    points_b = b_summary["supported_points"]
+
+    if not points_a or not points_b:
+        return [], [{"claim": "No candidate claims", "reason": "missing_support_points"}]
+
+    point_a = points_a[0]
+    point_b = points_b[0]
+
+    claim = (
+        f"For query '{query}', {doc_a.name} highlights: {point_a['point']} "
+        f"while {doc_b.name} highlights: {point_b['point']}"
+    )
+
+    support_a = point_a["citations"]
+    support_b = point_b["citations"]
+
+    # Must have support on both sides and lexical support in evidence.
+    confidence = _claim_confidence(claim=claim, support_a=support_a, support_b=support_b, overlap_score=overlap_score)
+    if confidence < MIN_CLAIM_SUPPORT_CONFIDENCE:
+        rejected_claims.append({"claim": claim, "reason": "low_claim_support_confidence"})
+        return [], rejected_claims
+
+    combined_evidence_text = " ".join(_safe_text(item.get("text")) for item in support_a + support_b)
+    if _contains_unsupported_generic_phrase(claim, combined_evidence_text):
+        rejected_claims.append({"claim": claim, "reason": "unsupported_by_evidence"})
+        return [], rejected_claims
+
+    verified = [
+        {
+            "claim": claim,
+            "topic": query,
+            "support_a": support_a,
+            "support_b": support_b,
+            "confidence": confidence,
+            "doc_a": {
+                "document_id": doc_a.id,
+                "document_name": doc_a.name,
+                "claim": point_a["point"],
+                "citations": support_a,
+            },
+            "doc_b": {
+                "document_id": doc_b.id,
+                "document_name": doc_b.name,
+                "claim": point_b["point"],
+                "citations": support_b,
+            },
+        }
+    ]
+    return verified, rejected_claims
+
+
+def _deterministic_compare_answer(verified_differences: list[dict[str, Any]]) -> str:
+    if not verified_differences:
+        return "I could not find enough shared evidence to compare these documents reliably."
+
+    parts: list[str] = []
+    for item in verified_differences:
+        doc_a = item["doc_a"]["document_name"]
+        doc_b = item["doc_b"]["document_name"]
+        claim_a = item["doc_a"]["claim"]
+        claim_b = item["doc_b"]["claim"]
+        parts.append(f"{doc_a}: {claim_a}")
+        parts.append(f"{doc_b}: {claim_b}")
+
+    return " ".join(parts)
+
+
 def _multi_doc_rank_confidence(query: str, docs: list[RetrievedDocument]) -> tuple[float, dict[str, Any]]:
     signals = [_build_document_signals(query=query, doc=doc) for doc in docs]
     if not signals:
@@ -327,8 +522,13 @@ def _synthesize(mode: CompareMode, query: str, docs: list[RetrievedDocument]) ->
     prompt_question = (
         f"Mode: {mode}\n"
         f"User query: {query}\n"
-        "Provide a grounded, concise comparison using only the context. "
-        "Call out major differences and mention if evidence is weak."
+        "Rules:\n"
+        "- Use only explicit evidence from context.\n"
+        "- Do not infer pedagogical style, methodology, abstraction level, theory/practice framing unless explicit.\n"
+        "- Do not use phrases like theoretical foundation, practical application, complementary angles, real-world examples, empirical observation unless directly evidenced.\n"
+        "- If evidence is weak or unrelated, say so.\n"
+        "- Prefer no comparison over weak comparison.\n"
+        "Return concise grounded output."
     )
     return generate_answer(question=prompt_question, context_chunks=[context])
 
@@ -359,11 +559,16 @@ def build_compare_response(
     gaps: list[dict[str, Any]] = []
     ranking: list[dict[str, Any]] = []
     reason: dict[str, Any] = {"doc_relevance": [], "shared_concepts": [], "overlap_score": 0.0}
-    status = "ok"
+    status: CompareStatus = "ok"
+    supported_comparison_points: list[dict[str, Any]] = []
+    rejected_claims: list[dict[str, Any]] = []
 
     evidence_by_doc: dict[str, list[dict[str, Any]]] = {
         doc.id: _citations(doc) for doc in retrieved_docs
     }
+    flat_citations: list[dict[str, Any]] = [item for values in evidence_by_doc.values() for item in values]
+
+    intermediate = _build_intermediate_structure(query=cleaned_query, docs=retrieved_docs)
 
     answer: str
 
@@ -373,6 +578,8 @@ def build_compare_response(
 
         if not reason["is_supported"]:
             status = "insufficient_overlap"
+            intermediate["abstain"] = True
+            intermediate["abstain_reason"] = "overlap_below_threshold"
             answer = (
                 "These documents do not appear to discuss the same topic closely enough to support "
                 "a reliable comparison for this query."
@@ -391,10 +598,14 @@ def build_compare_response(
                     "semantic_similarity": reason["semantic_similarity"],
                     "overlap_score": reason["overlap_score"],
                 },
+                "supported_comparison_points": [],
+                "rejected_claims": rejected_claims,
                 "evidence": {
                     "doc_a": _citations(doc_a),
                     "doc_b": _citations(doc_b),
                 },
+                "citations": flat_citations,
+                "intermediate": intermediate,
                 "comparison": {
                     "summary": summary,
                     "differences": [],
@@ -403,27 +614,36 @@ def build_compare_response(
                 },
             }
 
-        answer = _synthesize(mode=mode, query=cleaned_query, docs=retrieved_docs)
+        verified_differences, rejected_claims = _build_verified_differences(
+            query=cleaned_query,
+            doc_a=doc_a,
+            doc_b=doc_b,
+            intermediate=intermediate,
+            overlap_score=float(reason["overlap_score"]),
+        )
+
+        supported_comparison_points = verified_differences
+        intermediate["differences"] = verified_differences
+
+        if not verified_differences and mode == "compare":
+            status = "insufficient_evidence"
+            intermediate["abstain"] = True
+            intermediate["abstain_reason"] = "no_verified_dual_support_claims"
+            answer = "I could not find enough shared evidence to compare these documents reliably."
+        else:
+            answer = _synthesize(mode=mode, query=cleaned_query, docs=retrieved_docs)
+            evidence_text = " ".join(_safe_text(c.get("text")) for c in flat_citations)
+            if _contains_unsupported_generic_phrase(answer, evidence_text):
+                rejected_claims.append(
+                    {
+                        "claim": answer,
+                        "reason": "unsupported_generic_phrase_in_generation",
+                    }
+                )
+                answer = _deterministic_compare_answer(verified_differences)
 
         if mode == "compare":
-            # Differences are only emitted when both documents have sufficient overlap support.
-            differences.append(
-                {
-                    "topic": cleaned_query,
-                    "doc_a": {
-                        "document_id": doc_a.id,
-                        "document_name": doc_a.name,
-                        "claim": _claim_from_chunks(doc_a.chunks),
-                        "citations": _citations(doc_a),
-                    },
-                    "doc_b": {
-                        "document_id": doc_b.id,
-                        "document_name": doc_b.name,
-                        "claim": _claim_from_chunks(doc_b.chunks),
-                        "citations": _citations(doc_b),
-                    },
-                }
-            )
+            differences = verified_differences
 
         if mode == "gaps":
             signal_map = {
@@ -457,7 +677,9 @@ def build_compare_response(
                 )
 
             if not gaps:
-                status = "low_confidence"
+                status = "insufficient_evidence"
+                intermediate["abstain"] = True
+                intermediate["abstain_reason"] = "no_reliable_gap_detected"
                 answer = "No reliable gap detected from the retrieved evidence for this query."
 
     elif mode == "rank":
@@ -479,7 +701,9 @@ def build_compare_response(
         ranking = sorted(ranked, key=lambda item: float(item["score"]), reverse=True)
 
         if confidence < MIN_RANK_CONFIDENCE:
-            status = "low_confidence"
+            status = "insufficient_evidence"
+            intermediate["abstain"] = True
+            intermediate["abstain_reason"] = "ranking_confidence_below_threshold"
             answer = (
                 "Ranking confidence is low because the selected documents show weak relevance or overlap "
                 "for this query. No strong winner can be claimed reliably."
@@ -489,12 +713,12 @@ def build_compare_response(
 
     summary = "Comparison generated from document-specific retrieved evidence."
     if mode == "gaps":
-        if status == "low_confidence":
+        if status == "insufficient_evidence":
             summary = "No reliable gap detected from retrieved evidence."
         else:
             summary = "Gap analysis generated by contrasting concepts present across the two selected documents."
     if mode == "rank":
-        if status == "low_confidence":
+        if status == "insufficient_evidence":
             summary = "Ranking confidence is low due to weak document relevance/overlap for this query."
         else:
             summary = "Ranking generated from relevance, query-token overlap, and coverage-depth scoring."
@@ -511,7 +735,11 @@ def build_compare_response(
             "semantic_similarity": reason.get("semantic_similarity", 0.0),
             "overlap_score": reason.get("overlap_score", 0.0),
         },
+        "supported_comparison_points": supported_comparison_points,
+        "rejected_claims": rejected_claims,
         "evidence": evidence_by_doc,
+        "citations": flat_citations,
+        "intermediate": intermediate,
         "comparison": {
             "summary": summary,
             "differences": differences,
