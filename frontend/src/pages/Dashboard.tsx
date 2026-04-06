@@ -1,3 +1,4 @@
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const Dashboard = () => {
           </span>
         </Link>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link to="/chat">
             <Button variant="ghost" size="sm" className="text-muted-foreground">
               <MessageSquare className="h-4 w-4 mr-1.5" /> Chat

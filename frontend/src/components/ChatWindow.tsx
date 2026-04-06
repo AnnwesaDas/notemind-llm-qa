@@ -18,6 +18,9 @@ interface ChatWindowProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   // Filename selected/uploaded in shared parent state.
   uploadedFilename: string | null;
+  inputValue: string;
+  setInputValue: React.Dispatch<React.SetStateAction<string>>;
+  onAddHistory?: (question: string, document: string) => void;
 }
 
 const ChatWindow = ({
@@ -27,8 +30,10 @@ const ChatWindow = ({
   loading,
   setLoading,
   uploadedFilename,
+  inputValue,
+  setInputValue,
+  onAddHistory,
 }: ChatWindowProps) => {
-  const [input, setInput] = useState("");
   const [mode, setMode] = useState<"document" | "assistant">("document");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -38,21 +43,26 @@ const ChatWindow = ({
 
   useEffect(() => {
     setMessages([]);
-    setInput("");
+    setInputValue("");
     setLoading(false);
-  }, [resetSignal, setLoading, setMessages]);
+  }, [resetSignal, setLoading, setMessages, setInputValue]);
 
   const handleSendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!inputValue.trim() || loading) return;
+
+    // Add to history if callback provided
+    if (onAddHistory && uploadedFilename) {
+      onAddHistory(inputValue, uploadedFilename);
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: inputValue,
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    setInputValue("");
     setLoading(true);
 
     try {
@@ -61,7 +71,7 @@ const ChatWindow = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: input,
+          question: inputValue,
           filename: uploadedFilename,
           mode,
         }),
@@ -220,8 +230,8 @@ const ChatWindow = ({
         <div className="flex gap-2 max-w-3xl mx-auto">
           <input
             type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
             placeholder={
               mode === "assistant"
@@ -234,7 +244,7 @@ const ChatWindow = ({
           <Button
             size="icon"
             onClick={handleSendMessage}
-            disabled={loading || !input.trim()}
+            disabled={loading || !inputValue.trim()}
             className="rounded-xl shrink-0 bg-accent text-accent-foreground hover:bg-accent/80 border-0 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
