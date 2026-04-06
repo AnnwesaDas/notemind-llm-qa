@@ -20,13 +20,13 @@ Upload notes (PDF or TXT), index them with embeddings and FAISS, then ask questi
 
 ## Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Backend | FastAPI, Python |
-| Frontend | React 18, TypeScript, Vite |
-| Retrieval | sentence-transformers, FAISS |
-| Parsing | pypdf |
-| LLM provider | Ollama (local HTTP API) |
+| Layer        | Technology                   |
+| ------------ | ---------------------------- |
+| Backend      | FastAPI, Python              |
+| Frontend     | React 18, TypeScript, Vite   |
+| Retrieval    | sentence-transformers, FAISS |
+| Parsing      | pypdf                        |
+| LLM provider | Ollama (local HTTP API)      |
 
 ## Repository Layout
 
@@ -255,3 +255,40 @@ Current status: suitable for local development and demos.
 - Move storage/indexing to managed services for scale.
 - Introduce structured logs, metrics, and health checks for deployments.
 - Add CI for backend/frontend tests and linting. **(done)**
+
+
+## Recent updates:
+
+- **dark/light theme toggle** added with local storage persistence across all pages
+- **query history sidebar** added to Chat page with the delete functionality
+- **UI Improvements** including skeleton loaders, hover animations, and empty state components.
+
+## Recent Updates
+
+- **Dark/Light theme toggle** added with localStorage persistence across all pages.
+- **Query history sidebar** added to Chat page with delete functionality.
+- **UI improvements** including skeleton loaders, hover animations, and empty state components.
+
+## Recent Updates
+
+- **Dark/Light theme toggle** added with localStorage persistence across all pages.
+- **Query history sidebar** added to Chat page with delete functionality.
+- **UI improvements** including skeleton loaders, hover animations, and empty state components.
+
+## Recent Updates
+
+- **Dark/Light theme toggle** added with localStorage persistence across all pages.
+- **Query history sidebar** added to Chat page with delete functionality.
+- **UI improvements** including skeleton loaders, hover animations, and empty state components.
+
+## Recent Updates
+
+- **Dark/Light theme toggle** added with localStorage persistence across all pages.
+- **Query history sidebar** added to Chat page with delete functionality.
+- **UI improvements** including skeleton loaders, hover animations, and empty state components.
+
+## Recent Updates
+
+- **Dark/Light theme toggle** added with localStorage persistence across all pages.
+- **Query history sidebar** added to Chat page with delete functionality.
+- **UI improvements** including skeleton loaders, hover animations, and empty state components.
