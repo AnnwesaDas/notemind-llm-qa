@@ -1,3 +1,4 @@
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftRight, MessageSquare, Sparkles, FileText } from "lucide-react";
@@ -21,17 +22,20 @@ const Index = () => {
       </div>
 
       {/* Nav */}
-      <nav className="relative z-10 border-b border-border/50 px-6 py-4 flex items-center justify-between backdrop-blur-sm">
-        <div className="flex items-center">
-          <span className="text-lg font-semibold tracking-tight text-foreground">
-            <span className="text-primary">Note</span>
-            <span className="text-foreground">Mind</span>
-          </span>
-        </div>
-        <Link to="/dashboard">
-          <Button size="sm" variant="outline" className="glass border-border/60 text-foreground hover:bg-surface-hover">Go to Dashboard</Button>
-        </Link>
-      </nav>
+<nav className="relative z-10 border-b border-border/50 px-6 py-4 flex items-center justify-between backdrop-blur-sm">
+  <div className="flex items-center">
+    <span className="text-lg font-semibold tracking-tight text-foreground">
+      <span className="text-primary">Note</span>
+      <span className="text-foreground">Mind</span>
+    </span>
+  </div>
+  <div className="flex items-center gap-2">
+    <ThemeToggle />
+    <Link to="/dashboard">
+      <Button size="sm" variant="outline" className="glass border-border/60 text-foreground hover:bg-surface-hover">Go to Dashboard</Button>
+    </Link>
+  </div>
+</nav>
 
       {/* Hero */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
