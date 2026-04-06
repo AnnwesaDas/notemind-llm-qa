@@ -9,9 +9,10 @@ interface AppSidebarProps {
   onNewChat?: () => void;
   uploadedFilename?: string | null;
   setUploadedFilename?: (filename: string | null) => void;
+  children?: React.ReactNode;
 }
 
-const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSidebarProps) => {
+const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename, children }: AppSidebarProps) => {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   const [memoryDocs, setMemoryDocs] = useState(getUploadedDocs());
 
@@ -99,6 +100,9 @@ const AppSidebar = ({ onNewChat, uploadedFilename, setUploadedFilename }: AppSid
           </div>
         </section>
       </div>
+
+      {/* Recent Queries Section (children) */}
+      {children}
     </aside>
   );
 };
